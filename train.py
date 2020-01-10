@@ -108,9 +108,9 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
         print("Epoch", epochnum, train_loss / train_iters, test_loss / test_iters, 'r2',
               tracker.get_last_metric(train=True), tracker.get_last_metric(train=False))
 
-        torch.save({'model_state': model.module.state_dict(),
+        torch.save({'model_state': model.state_dict(),
                     'opt_state': optimizer.state_dict(),
-                    'inference_model': model.module,
+                    'inference_model': model,
                     'history': tracker}, args.o)
     return model, tracker
 
