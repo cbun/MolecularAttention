@@ -1,16 +1,9 @@
-from tqdm import tqdm
-import torch
-import multiprocessing
-
 import mordred
 import torch
 from rdkit import Chem
 from torch.utils.data import Dataset
-from tqdm import tqdm
 
 from features.generateFeatures import smiles_to_image
-
-
 
 
 def logps(mol):
@@ -18,6 +11,55 @@ def logps(mol):
         return list(mordred.Calculator(mordred.SLogP.SLogP)(mol).values())[0]
     except:
         return None
+
+
+def molecular_weight(mol):
+    try:
+        return list(mordred.Calculator(mordred.Weight.Weight)(mol).values())[0]
+    except:
+        return None
+
+
+def rotate_bond_count(mol):
+    try:
+        return list(mordred.Calculator(mordred.RotatableBond.RotatableBondsCount)(mol).values())[0]
+    except:
+        return None
+
+
+def acid_count(mol):
+    try:
+        return list(mordred.Calculator(mordred.AcidBase.AcidicGroupCount)(mol).values())[0]
+    except:
+        return None
+
+
+def hacceptor_count(mol):
+    try:
+        return list(mordred.Calculator(mordred.HydrogenBond.HBondAcceptor)(mol).values())[0]
+    except:
+        return None
+
+
+def hdonor_count(mol):
+    try:
+        return list(mordred.Calculator(mordred.HydrogenBond.HBondDonor)(mol).values())[0]
+    except:
+        return None
+
+
+funcs = {
+    'hdonor': hdonor_count,
+    'hacceptor': hacceptor_count,
+    'acid': acid_count,
+    'weight': molecular_weight,
+    'logp': logps,
+    'rotatable_bonds': rotate_bond_count
+}
+
+
+def get_properety_function(name):
+    return funcs[name]
 
 
 class ImageDataset(Dataset):

@@ -10,7 +10,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from features.datasets import ImageDataset
+
+from features.datasets import ImageDataset, funcs, get_properety_function
 from metrics import trackers
 from models import imagemodel
 
@@ -39,6 +40,7 @@ def validate_smiles(smiles):
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', type=str, required=True, help='smiles input file')
+    parser.add_argument('-p', choices=list(funcs.keys()), help='select property for model')
     parser.add_argument('-w', type=int, default=8, help='number of workers for data loaders to use.')
     parser.add_argument('-b', type=int, default=64, help='batch size to use')
     parser.add_argument('-o', type=str, default='saved_models/model.pt', help='name of file to save model to')
@@ -119,7 +121,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
     return model, tracker
 
 
-def load_data_models(fname, random_seed, workers, batch_size, return_datasets=False):
+def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -130,10 +132,10 @@ def load_data_models(fname, random_seed, workers, batch_size, return_datasets=Fa
 
     train_idx, test_idx = train_test_split(smiles, test_size=0.2, random_state=random_seed)
 
-    train_dataset = ImageDataset(train_idx)
+    train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname))
     train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
-    test_dataset = ImageDataset(test_idx)
+    test_dataset = ImageDataset(test_idx, property_func=get_properety_function(pname))
     test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
     model = imagemodel.ImageModel()
@@ -150,7 +152,7 @@ if __name__ == '__main__':
     np.random.seed(args.r)
     torch.manual_seed(args.r)
 
-    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b)
+    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p)
     print("Done.")
 
     print("Starting trainer.")
