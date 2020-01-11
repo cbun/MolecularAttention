@@ -18,7 +18,7 @@ class ImageModel(nn.Module):
         )
 
         self.model = nn.Sequential(
-            nn.Linear(512, intermediate_rep),
+            nn.Linear(2048, intermediate_rep),
             nn.BatchNorm1d(intermediate_rep),
         )
 
