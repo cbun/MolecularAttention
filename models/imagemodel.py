@@ -3,14 +3,16 @@ import torchvision.models as models
 
 class ImageModel(nn.Module):
 
-    def __init__(self, dropout_rate = 0.15, intermediate_rep=128):
+    def __init__(self, dropout_rate = 0.15, intermediate_rep=128,  nheads=1):
         super(ImageModel, self).__init__()
-        resnet18 = models.resnet34(pretrained=True)
+        self.return_attn = True
+
+        resnet18 = models.resnet101(pretrained=True)
         resnet18 = nn.Sequential(*list(resnet18.children())[:-1])
-        self.resnet181 = nn.Sequential(*list(resnet18.children())[:5])
-        self.resnet182 = nn.Sequential(*list(resnet18.children())[5:])
+        self.resnet181 = nn.Sequential(*list(resnet18.children())[:15])
+        self.resnet182 = nn.Sequential(*list(resnet18.children())[15:])
         self.attention = nn.Sequential(
-            nn.Conv2d(64, 1, kernel_size=5, padding=2, stride=1),
+            nn.Conv2d(64, nheads, kernel_size=5, padding=2, stride=1),
         )
 
         self.model = nn.Sequential(
@@ -25,6 +27,7 @@ class ImageModel(nn.Module):
             nn.Linear(64, 1)
         )
 
+
     def forward(self, features):
         image = self.resnet181(features)
         attention = self.attention(image)
@@ -34,5 +37,7 @@ class ImageModel(nn.Module):
         image = self.resnet182(image * attention)
         image = image.view(features.shape[0], -1)
 
-
-        return self.prop_model(self.model(image)), attention
+        if self.return_attn:
+            return self.prop_model(self.model(image)), attention
+        else:
+            return self.prop_model(self.model(image))
