@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+from features.generateFeatures import MORDRED_SIZE
 from features.datasets import ImageDataset, funcs, get_properety_function
 from metrics import trackers
 from models import imagemodel
@@ -82,6 +82,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
 
             mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
             mse_loss.backward()
+            torch.nn.utils.clip_grad_value_(model.parameters(), 10.0)
             optimizer.step()
             train_loss += mse_loss.item()
             train_iters += 1
@@ -126,14 +127,14 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
     train_idx, test_idx = train_test_split(smiles, test_size=0.2, random_state=random_seed)
 
     train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
-                                 values=124 if pname == 'all' else 1)
+                                 values=MORDRED_SIZE if pname == 'all' else 1)
     train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
     test_dataset = ImageDataset(test_idx, property_func=get_properety_function(pname),
-                                values=124 if pname == 'all' else 1)
+                                values=MORDRED_SIZE if pname == 'all' else 1)
     test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
-    model = imagemodel.ImageModel(nheads=nheads, outs=124 if pname == 'all' else 1)
+    model = imagemodel.ImageModel(nheads=nheads, outs=MORDRED_SIZE if pname == 'all' else 1)
 
     if return_datasets:
         return train_dataset, test_dataset, model

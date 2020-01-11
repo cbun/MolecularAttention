@@ -14,7 +14,7 @@ from features.utils import Invert
 smiles_vocab = None  # load charater to int function
 data_location = 'data/'
 
-
+MORDRED_SIZE = 1613
 def smile_to_mordred(smi, imputer_dict=None):
     calc = Calculator(descriptors, ignore_3D=True)
     res = calc(smi)
