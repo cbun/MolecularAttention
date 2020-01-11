@@ -12,7 +12,7 @@ class ImageModel(nn.Module):
         self.resnet181 = nn.Sequential(*list(resnet18.children())[:15])
         self.resnet182 = nn.Sequential(*list(resnet18.children())[15:])
         self.attention = nn.Sequential(
-            nn.Conv2d(64, nheads, kernel_size=5, padding=2, stride=1),
+            nn.Conv2d(2048, nheads, kernel_size=5, padding=2, stride=1),
         )
 
         self.model = nn.Sequential(
