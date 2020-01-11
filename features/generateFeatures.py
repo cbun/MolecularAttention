@@ -16,7 +16,6 @@ data_location = 'data/'
 
 
 def smile_to_mordred(smi, imputer_dict=None):
-    smi = Chem.MolFromSmiles(smi)
     calc = Calculator(descriptors, ignore_3D=True)
     res = calc(smi)
     res = np.array(list(res.values())).reshape(1, -1)
@@ -47,13 +46,3 @@ def smiles_to_image(mol, molSize=(128, 128), kekulize=True, mol_name='', mol_com
     return ToTensor()(Invert()(image))
 
 
-def smiles_to_smiles(smi, vocab, maxlen=320):
-    if isinstance(vocab, tuple):
-        vocab = vocab[0]
-    t = [vocab[i] for i in smi_tokenizer(smi)]
-    if len(t) >= maxlen:
-        t = t[:maxlen]
-    else:
-        t = t + (maxlen - len(t)) * [vocab[' ']]
-    t = np.array(t).flatten()
-    return t

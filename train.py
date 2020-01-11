@@ -10,7 +10,6 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-
 from features.datasets import ImageDataset, funcs, get_properety_function
 from metrics import trackers
 from models import imagemodel
@@ -46,7 +45,7 @@ def get_args():
     parser.add_argument('-o', type=str, default='saved_models/model.pt', help='name of file to save model to')
     parser.add_argument('-r', type=int, default=32, help='random seed for splitting.')
     parser.add_argument('-pb', action='store_true')
-
+    parser.add_argument('--nheads', type=int, default=1, help='number of attention heads')
     parser.add_argument('--metric_plot_prefix', default=None, type=str, help='prefix for graphs for performance')
     parser.add_argument('--optimizer', default='adamw', type=str, help='optimizer to use',
                         choices=['sgd', 'adam', 'adamw'])
@@ -110,12 +109,12 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
 
         torch.save({'model_state': model.state_dict(),
                     'opt_state': optimizer.state_dict(),
-                    'inference_model': model,
-                    'history': tracker}, args.o)
+                    'history': tracker,
+                    'nheads' : model.nheads}, args.o)
     return model, tracker
 
 
-def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False):
+def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -126,13 +125,15 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
     train_idx, test_idx = train_test_split(smiles, test_size=0.2, random_state=random_seed)
 
-    train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname))
+    train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
+                                 values=124 if pname == 'all' else 1)
     train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
-    test_dataset = ImageDataset(test_idx, property_func=get_properety_function(pname))
+    test_dataset = ImageDataset(test_idx, property_func=get_properety_function(pname),
+                                values=124 if pname == 'all' else 1)
     test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
-    model = imagemodel.ImageModel()
+    model = imagemodel.ImageModel(nheads=nheads, outs=124 if pname == 'all' else 1)
 
     if return_datasets:
         return train_dataset, test_dataset, model
@@ -146,7 +147,7 @@ if __name__ == '__main__':
     np.random.seed(args.r)
     torch.manual_seed(args.r)
 
-    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p)
+    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads)
     print("Done.")
 
     print("Starting trainer.")

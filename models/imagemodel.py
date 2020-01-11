@@ -3,7 +3,7 @@ import torchvision.models as models
 
 class ImageModel(nn.Module):
 
-    def __init__(self, dropout_rate = 0.15, intermediate_rep=128,  nheads=1, outs=1):
+    def __init__(self, intermediate_rep=128,  nheads=1, outs=1):
         super(ImageModel, self).__init__()
         self.return_attn = True
         self.outs = outs
@@ -33,7 +33,7 @@ class ImageModel(nn.Module):
     def forward(self, features):
         image = self.resnet181(features)
         attention = self.attention(image)
-        attention = nn.functional.softmax(attention.view(attention.shape[0], -1), dim=-1).view(attention.shape)
+        attention = nn.functional.softmax(attention.view(attention.shape[0], self.nheads, -1), dim=-1).view(attention.shape)
         attention = attention.repeat([1, int(2048 / self.nheads), 1, 1])
 
         image = self.resnet182(image * attention)
