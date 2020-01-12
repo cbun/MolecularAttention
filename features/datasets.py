@@ -1,5 +1,6 @@
 import mordred
 import torch
+import numpy as np
 from rdkit import Chem
 from torch.utils.data import Dataset
 
@@ -85,7 +86,7 @@ class ImageDataset(Dataset):
                     property = -1.0
                 property = torch.FloatTensor([property]).view((1))
             else:
-                property = torch.from_numpy(property).float()
+                property = torch.from_numpy(np.nan_to_num(property, nan=0, posinf=0, neginf=0)).float()
 
             if self.cache:
                 self.data_cache[self.smiles[item]] = (image, property)
