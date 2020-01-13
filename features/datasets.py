@@ -56,12 +56,37 @@ funcs = {
     'weight': molecular_weight,
     'logp': logps,
     'rotatable_bonds': rotate_bond_count,
-    'all' : smile_to_mordred
+    'all' : smile_to_mordred,
+    'image' : smiles_to_image
 }
 
 
 def get_properety_function(name):
     return funcs[name]
+
+class MolecularHolder:
+    def __init__(self, smiles, values):
+        self.smiles = smiles
+        self.mol = Chem.MolFromSmiles(self.smiles)
+        assert(self.mol is not None)
+        self.image = None
+        self.data = {}
+        self.data.update(values)
+
+    def get_image(self):
+        if self.image is None:
+            self.image = smiles_to_image(self.mol)
+            self.data['image'] = self.image
+        return self.image
+
+    def get_property(self, name):
+        if name in self.data:
+            return self.data[name]
+        elif name in funcs:
+            self.data[name] = funcs[name](self.mol)
+            return self.data[name]
+        else:
+            return None
 
 
 class ImageDataset(Dataset):
