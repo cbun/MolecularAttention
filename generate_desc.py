@@ -5,6 +5,7 @@ from functools import partial
 import numpy as np
 from features.generateFeatures import smile_to_mordred
 import pandas as pd
+from rdkit import Chem
 from train import validate_smiles
 from tqdm import tqdm
 def get_args():
@@ -25,10 +26,9 @@ if __name__=='__main__':
             smiles.append(g)
     del df
 
-    descs = []
-    with multiprocessing.Pool() as p:
-        gg = p.imap(partial(smile_to_mordred, userdkit=True), smiles)
-        for g in tqdm(gg, desc='generate descriptors'):
-            descs.append(g)
-    descs = np.stack(descs).astype(np.float16)
-    np.save(args.o, descs)
+    calc = Calculator(descriptors, ignore_3D=True)
+    mols = map(Chem.MolFromSmiles, smiles)
+    df = calc.pandas(mols, nproc=32)
+    print(df.head())
+    # descs = np.stack(descs).astype(np.float16)
+    # np.save(args.o, descs)
