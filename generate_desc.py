@@ -29,6 +29,6 @@ if __name__=='__main__':
     calc = Calculator(descriptors, ignore_3D=True)
     mols = map(Chem.MolFromSmiles, smiles)
     df = calc.pandas(mols, nproc=32)
-    print(df.head())
+    df.to_hdf(args.o)
     # descs = np.stack(descs).astype(np.float16)
     # np.save(args.o, descs)
