@@ -1,6 +1,7 @@
 import multiprocessing
 from mordred import descriptors, Calculator
 import argparse
+from functools import partial
 import numpy as np
 from features.generateFeatures import smile_to_mordred
 import pandas as pd
@@ -26,7 +27,7 @@ if __name__=='__main__':
 
     descs = []
     with multiprocessing.Pool() as p:
-        gg = p.imap(smile_to_mordred, smiles)
+        gg = p.imap(partial(smile_to_mordred, userdkit=True), smiles)
         for g in tqdm(gg, desc='generate descriptors'):
             descs.append(g)
     descs = np.stack(descs).astype(np.float16)

@@ -15,8 +15,11 @@ smiles_vocab = None  # load charater to int function
 data_location = 'data/'
 
 MORDRED_SIZE = 1613
-def smile_to_mordred(smi, imputer_dict=None):
+def smile_to_mordred(smi, imputer_dict=None, userdkit=False):
     calc = Calculator(descriptors, ignore_3D=True)
+    if userdkit:
+        smi = Chem.MolFromSmiles(smi)
+        assert(smi is not None)
     res = calc(smi)
     res = np.array(list(res.values())).reshape(1, -1).astype(np.float32)
     res = np.nan_to_num(res, posinf=0, neginf=0, nan=0)
