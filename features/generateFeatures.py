@@ -18,7 +18,8 @@ MORDRED_SIZE = 1613
 def smile_to_mordred(smi, imputer_dict=None):
     calc = Calculator(descriptors, ignore_3D=True)
     res = calc(smi)
-    res = np.array(list(res.values())).reshape(1, -1)
+    res = np.array(list(res.values())).reshape(1, -1).astype(np.float32)
+    res = np.nan_to_num(res, posinf=0, neginf=0, nan=0)
     if imputer_dict is not None:
         imputer_dict = imputer_dict[0]
         res = imputer_dict['scaler'].transform(imputer_dict['imputer'].transform(res))
