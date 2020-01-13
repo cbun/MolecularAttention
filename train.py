@@ -10,7 +10,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from features.generateFeatures import MORDRED_SIZE
-from features.datasets import ImageDataset, funcs, get_properety_function
+from features.datasets import ImageDataset, funcs, get_properety_function, ImageDatasetPreLoaded
 from metrics import trackers
 from models import imagemodel
 
@@ -39,6 +39,7 @@ def validate_smiles(smiles):
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', type=str, required=True, help='smiles input file')
+    parser.add_argument('--precomputed_values', type=str, required=False, default=None, help='precomputed decs for trainings')
     parser.add_argument('-p', choices=list(funcs.keys()), help='select property for model')
     parser.add_argument('-w', type=int, default=8, help='number of workers for data loaders to use.')
     parser.add_argument('-b', type=int, default=64, help='batch size to use')
@@ -115,26 +116,48 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
     return model, tracker
 
 
-def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1):
+def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1, precompute_frame=None):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
-        gg = filter(lambda x: x is not None, p.imap_unordered(validate_smiles, list(df.iloc[:, 0])))
+        gg = filter(lambda x: x is not None, p.imap(validate_smiles, list(df.iloc[:, 0])))
         for g in tqdm(gg, desc='validate smiles'):
             smiles.append(g)
     del df
 
-    train_idx, test_idx = train_test_split(smiles, test_size=0.2, random_state=random_seed)
+    if precompute_frame is not None:
+        features = pd.read_hdf(precompute_frame, 'data')
+        features = np.array(features, dtype=np.float32)
+        features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
 
-    train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
-                                 values=MORDRED_SIZE if pname == 'all' else 1)
-    train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
+        assert(features.shape[0] == len(smiles))
+        assert(pname == 'all')
+        train_idx, test_idx, train_smiles, test_smiles = train_test_split(smiles, list(range(len(smiles))), test_size=0.2, random_state=random_seed)
+        train_features = features[train_idx]
+        test_features = features[test_idx]
 
-    test_dataset = ImageDataset(test_idx, property_func=get_properety_function(pname),
-                                values=MORDRED_SIZE if pname == 'all' else 1)
-    test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
+        train_dataset = ImageDatasetPreLoaded(train_idx, train_features, property_func=get_properety_function(pname),
+                                     values=MORDRED_SIZE if pname == 'all' else 1)
+        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
-    model = imagemodel.ImageModel(nheads=nheads, outs=MORDRED_SIZE if pname == 'all' else 1)
+        test_dataset = ImageDatasetPreLoaded(test_idx, test_features, property_func=get_properety_function(pname),
+                                    values=MORDRED_SIZE if pname == 'all' else 1)
+        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
+
+        model = imagemodel.ImageModel(nheads=nheads, outs=MORDRED_SIZE if pname == 'all' else 1)
+
+    else:
+        train_idx, test_idx = train_test_split(smiles, test_size=0.2, random_state=random_seed)
+
+        train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
+                                     values=MORDRED_SIZE if pname == 'all' else 1)
+        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
+
+        test_dataset = ImageDataset(test_idx, property_func=get_properety_function(pname),
+                                    values=MORDRED_SIZE if pname == 'all' else 1)
+        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
+
+        model = imagemodel.ImageModel(nheads=nheads, outs=MORDRED_SIZE if pname == 'all' else 1)
 
     if return_datasets:
         return train_dataset, test_dataset, model
@@ -148,7 +171,7 @@ if __name__ == '__main__':
     np.random.seed(args.r)
     torch.manual_seed(args.r)
 
-    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads)
+    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads, precompute_frame=args.precomputed_values)
     print("Done.")
 
     print("Starting trainer.")

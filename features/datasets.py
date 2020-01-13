@@ -89,6 +89,32 @@ class MolecularHolder:
             return None
 
 
+class ImageDatasetPreLoaded(Dataset):
+    def __init__(self, smiles, descs, property_func=logps, cache=True, values=1):
+        self.smiles = smiles
+        self.descs = descs
+        self.property_func = property_func
+        self.cache = cache
+        self.values = values
+        self.data_cache = {}
+
+    def __getitem__(self, item):
+        if self.cache and self.smiles[item] in self.data_cache:
+            image =  self.data_cache[self.smiles[item]]
+            vec = torch.from_numpy(np.nan_to_num(self.descs[item], nan=0, posinf=0, neginf=0)).float()
+            return image, vec
+
+        else:
+            mol = Chem.MolFromSmiles(self.smiles[item])
+            image = smiles_to_image(mol)
+            vec = torch.from_numpy(np.nan_to_num(self.descs[item], nan=0, posinf=0, neginf=0)).float()
+            if self.cache:
+                self.data_cache[self.smiles[item]] = image
+            return image, vec
+
+    def __len__(self):
+        return len(self.smiles)
+
 class ImageDataset(Dataset):
     def __init__(self, smiles, property_func=logps, cache=True, values=1):
         self.smiles = smiles
