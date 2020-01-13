@@ -6,6 +6,7 @@ import numpy as np
 from features.generateFeatures import smile_to_mordred
 import pandas as pd
 from rdkit import Chem
+
 from train import validate_smiles
 from tqdm import tqdm
 def get_args():
@@ -29,6 +30,8 @@ if __name__=='__main__':
     calc = Calculator(descriptors, ignore_3D=True)
     mols = map(Chem.MolFromSmiles, smiles)
     df = calc.pandas(mols, nproc=32)
-    df.to_hdf(args.o, 'data')
+    df = np.array(df, dtype=np.float16)
+    df = np.nan_to_num(df, posinf=0, neginf=0, nan=0)
+    np.save(args.o, df)
     # descs = np.stack(descs).astype(np.float16)
     # np.save(args.o, descs)
