@@ -64,7 +64,7 @@ def get_args():
 
 
 def trainer(model, optimizer, train_loader, test_loader, epochs=5):
-    tracker = trackers.PytorchHistory()
+    tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory
     lr_red = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=30, cooldown=0, verbose=True, threshold=1e-4,
                                min_lr=1e-8)
 

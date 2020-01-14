@@ -2,6 +2,62 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
 
+class ComplexPytorchHistory:
+    def __init__(self, metric=sklearn.metrics.r2_score, metric_name='r2'):
+        self.train_loss = []
+        self.test_loss = []
+        self.train_r2 = []
+        self.test_r2 = []
+        self.metric = metric
+        self.metric_name = metric_name
+        self.true_tracker, self.pred_tracker = [], []
+        self.init=True
+
+    def log_loss(self, loss, train=True):
+        if train:
+            self.train_loss.append(loss)
+        else:
+            self.test_loss.append(loss)
+
+    def track_metric(self, pred, value):
+        vs = pred.shape[-1]
+        if self.init:
+            for i in range(vs):
+                self.true_tracker.append([])
+                self.pred_tracker.append([])
+            self.init = False
+
+        for i in range(vs):
+            self.pred_tracker[i].append(pred[:,  i])
+            self.true_tracker[i].append(value[:, i])
+
+    def get_last_metric(self, train=True):
+        if train:
+            return self.train_r2[-1]
+        else:
+            return self.test_r2[-1]
+
+    def log_metric(self, r2=None, train=True, internal=False):
+        if internal:
+            avg_met = []
+            for i in range(len(self.true_tracker)):
+                true_tracker = np.concatenate(self.true_tracker[i]).flatten()
+                pred_tracker = np.concatenate(self.pred_tracker[i]).flatten()
+                r2 = self.metric(true_tracker, pred_tracker)
+                avg_met.append(r2)
+            self.true_tracker, self.pred_tracker = [], []
+            self.init = True
+            r2 = np.mean(avg_met)
+        if train:
+            self.train_r2.append(r2)
+        else:
+            self.test_r2.append(r2)
+
+    def plot_loss(self, save_file=None, title='Loss', figsize=(8, 5)):
+        pass
+
+    def plot_metric(self, save_file=None, title='Loss', figsize=(8, 5)):
+        pass
 
 class PytorchHistory:
     def __init__(self, metric=sklearn.metrics.r2_score, metric_name='r2'):
