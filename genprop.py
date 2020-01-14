@@ -20,7 +20,6 @@ def get_args():
 
 def getp(x):
     smile, pname = x
-    smile = Chem.MolFromSmiles(smile)
     return funcs[pname](smile)
 
 if __name__=='__main__':
