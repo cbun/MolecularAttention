@@ -18,7 +18,8 @@ def get_args():
     parser.add_argument('-p', choices=list(funcs.keys()), help='select property for model')
     return parser.parse_args()
 
-def getp(smile, pname):
+def getp(x):
+    smile, pname = x
     smile = Chem.MolFromSmiles(smile)
     return funcs[pname](smile)
 
