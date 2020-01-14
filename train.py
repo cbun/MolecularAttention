@@ -137,11 +137,11 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_features = features[train_idx]
         test_features = features[test_idx]
 
-        train_dataset = ImageDatasetPreLoaded(train_idx, train_features, imputer_pickle, property_func=get_properety_function(pname),
+        train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle, property_func=get_properety_function(pname),
                                      values=MORDRED_SIZE if pname == 'all' else 1)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
-        test_dataset = ImageDatasetPreLoaded(test_idx, test_features, imputer_pickle, property_func=get_properety_function(pname),
+        test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle, property_func=get_properety_function(pname),
                                     values=MORDRED_SIZE if pname == 'all' else 1)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
