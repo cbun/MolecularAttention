@@ -13,6 +13,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', type=str, required=True)
     parser.add_argument('-o', type=str, required=True)
+    parser.add_argument('-n', type=int, required=False, default=8)
 
     return parser.parse_args()
 
@@ -21,7 +22,7 @@ if __name__=='__main__':
     args = get_args()
     df = pd.read_csv(args.i, header=None)
     smiles = []
-    with multiprocessing.Pool() as p:
+    with multiprocessing.Pool(args.n) as p:
         gg = filter(lambda x: x is not None, p.imap_unordered(validate_smiles, list(df.iloc[:, 0])))
         for g in tqdm(gg, desc='validate smiles'):
             smiles.append(g)
