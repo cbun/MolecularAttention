@@ -102,7 +102,7 @@ class ImageDatasetPreLoaded(Dataset):
         self.cache = cache
         self.values = values
         self.data_cache = {}
-        self.transform = transforms.Compose([transforms.RandomRotation(degrees=(0, rot), fill=0), transforms.ToTensor()])
+        self.transform = transforms.Compose([transforms.RandomRotation(degrees=(0, rot)), transforms.ToTensor()])
 
 
     def __getitem__(self, item):
