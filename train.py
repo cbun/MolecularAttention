@@ -133,7 +133,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
         assert(features.shape[0] == len(smiles))
         assert(pname == 'all')
-        train_idx, test_idx, train_smiles, test_smiles = train_test_split(smiles, list(range(len(smiles))), test_size=0.2, random_state=random_seed)
+        train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles, test_size=0.2, random_state=random_seed)
         train_features = features[train_idx]
         test_features = features[test_idx]
 
