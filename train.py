@@ -85,7 +85,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
 
             mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
             mse_loss.backward()
-            torch.nn.utils.clip_grad_value_(model.parameters(), 10.0)
+            torch.nn.utils.clip_grad_value_(model.parameters(), 25.0)
             optimizer.step()
             train_loss += mse_loss.item()
             train_iters += 1
