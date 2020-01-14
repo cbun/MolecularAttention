@@ -5,6 +5,7 @@ from rdkit import Chem
 from torch.utils.data import Dataset
 import pickle
 from features.generateFeatures import smiles_to_image, smile_to_mordred
+from torchvision import transforms
 
 
 def logps(mol):
@@ -91,7 +92,7 @@ class MolecularHolder:
 
 
 class ImageDatasetPreLoaded(Dataset):
-    def __init__(self, smiles, descs, imputer_pickle, property_func=logps, cache=True, values=1):
+    def __init__(self, smiles, descs, imputer_pickle, property_func=logps, cache=True, values=1, rot=0):
         self.smiles = smiles
         self.descs = descs
         self.property_func = property_func
@@ -101,10 +102,14 @@ class ImageDatasetPreLoaded(Dataset):
         self.cache = cache
         self.values = values
         self.data_cache = {}
+        self.transform = transforms.Compose([transforms.RandomRotation(degrees=(0, rot), fill=0), transforms.ToTensor()])
+
 
     def __getitem__(self, item):
         if self.cache and self.smiles[item] in self.data_cache:
             image = self.data_cache[self.smiles[item]]
+            image = self.transform(image)
+
             vec = self.scaler.transform(self.imputer.transform(self.descs[item].reshape(1,-1))).flatten()
             vec = torch.from_numpy(np.nan_to_num(vec, nan=0, posinf=0, neginf=0)).float()
             return image, vec

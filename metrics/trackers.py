@@ -48,7 +48,7 @@ class ComplexPytorchHistory:
                 true_tracker = np.concatenate(self.true_tracker[i]).flatten()
                 pred_tracker = np.concatenate(self.pred_tracker[i]).flatten()
                 r2 = self.metric(true_tracker, pred_tracker)
-                avg_met.append(r2)
+                avg_met.append(max(0,r2))
             self.true_tracker, self.pred_tracker = [], []
             self.init = True
             r2 = np.mean(avg_met)

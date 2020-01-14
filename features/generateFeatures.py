@@ -7,7 +7,6 @@ from mordred import Calculator, descriptors
 from rdkit import Chem
 from rdkit.Chem import rdDepictor
 from rdkit.Chem.Draw import rdMolDraw2D
-from torchvision.transforms import ToTensor
 
 from features.utils import Invert
 
@@ -47,6 +46,6 @@ def smiles_to_image(mol, molSize=(128, 128), kekulize=True, mol_name='', mol_com
     image = Image.open(io.BytesIO(cairosvg.svg2png(bytestring=svg, parent_width=100, parent_height=100,
                                                    scale=1)))
     image.convert('RGB')
-    return ToTensor()(Invert()(image))
+    return (Invert()(image))
 
 
