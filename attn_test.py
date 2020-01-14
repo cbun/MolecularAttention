@@ -33,13 +33,13 @@ if __name__ == '__main__':
     my_cmap[:, -1] = np.linspace(0, 1, cmap.N)
     my_cmap = ListedColormap(my_cmap)
 
-    _, dset, model = load_data_models("data/debugset.smi", 32, 1, 1, 'hacceptor', return_datasets=True)
+    _, dset, model = load_data_models("data/debugset.smi", 32, 1, 1, 'weight', return_datasets=True)
 
     model = ImageModel()
-    model.load_state_dict(torch.load('saved_models/hacceptor_model.pt', map_location='cpu')['model_state'])
+    model.load_state_dict(torch.load('saved_models/weight_model.pt', map_location='cpu')['model_state'])
     model.eval()
 
-    idx = 645
+    idx = 234
     imout, act = dset[idx]
     pred, attn, image = get_attn_pred(*dset[idx])
     print(pred.shape, attn.shape, image.shape)

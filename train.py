@@ -40,6 +40,8 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', type=str, required=True, help='smiles input file')
     parser.add_argument('--precomputed_values', type=str, required=False, default=None, help='precomputed decs for trainings')
+    parser.add_argument('--imputer_pickle', type=str, required=False, default=None, help='imputer and scaler for transforming data')
+
     parser.add_argument('-p', choices=list(funcs.keys()), help='select property for model')
     parser.add_argument('-w', type=int, default=8, help='number of workers for data loaders to use.')
     parser.add_argument('-b', type=int, default=64, help='batch size to use')
@@ -116,7 +118,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
     return model, tracker
 
 
-def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1, precompute_frame=None):
+def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1, precompute_frame=None, imputer_pickle=None):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -125,9 +127,8 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
             smiles.append(g)
     del df
 
-    if precompute_frame is not None:
-        features = pd.read_hdf(precompute_frame, 'data')
-        features = np.array(features, dtype=np.float32)
+    if precompute_frame is not None and imputer_pickle is not None:
+        features = np.load(precompute_frame).astype(np.float32)
         features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
 
         assert(features.shape[0] == len(smiles))
@@ -171,7 +172,7 @@ if __name__ == '__main__':
     np.random.seed(args.r)
     torch.manual_seed(args.r)
 
-    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads, precompute_frame=args.precomputed_values)
+    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads, precompute_frame=args.precomputed_values, imputer_pickle=args.imputer_pickle)
     print("Done.")
 
     print("Starting trainer.")

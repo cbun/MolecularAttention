@@ -1,9 +1,9 @@
 import mordred
-import torch
 import numpy as np
+import torch
 from rdkit import Chem
 from torch.utils.data import Dataset
-
+import pickle
 from features.generateFeatures import smiles_to_image, smile_to_mordred
 
 
@@ -56,19 +56,20 @@ funcs = {
     'weight': molecular_weight,
     'logp': logps,
     'rotatable_bonds': rotate_bond_count,
-    'all' : smile_to_mordred,
-    'image' : smiles_to_image
+    'all': smile_to_mordred,
+    'image': smiles_to_image
 }
 
 
 def get_properety_function(name):
     return funcs[name]
 
+
 class MolecularHolder:
     def __init__(self, smiles, values):
         self.smiles = smiles
         self.mol = Chem.MolFromSmiles(self.smiles)
-        assert(self.mol is not None)
+        assert (self.mol is not None)
         self.image = None
         self.data = {}
         self.data.update(values)
@@ -90,30 +91,35 @@ class MolecularHolder:
 
 
 class ImageDatasetPreLoaded(Dataset):
-    def __init__(self, smiles, descs, property_func=logps, cache=True, values=1):
+    def __init__(self, smiles, descs, imputer_pickle, property_func=logps, cache=True, values=1):
         self.smiles = smiles
         self.descs = descs
         self.property_func = property_func
+        with open(imputer_pickle, 'rb') as f:
+            self.imputer, self.scaler = pickle.load(f)['imputer'], pickle.load(f)['scaler']
         self.cache = cache
         self.values = values
         self.data_cache = {}
 
     def __getitem__(self, item):
         if self.cache and self.smiles[item] in self.data_cache:
-            image =  self.data_cache[self.smiles[item]]
-            vec = torch.from_numpy(np.nan_to_num(self.descs[item], nan=0, posinf=0, neginf=0)).float()
+            image = self.data_cache[self.smiles[item]]
+            vec = self.scaler.transform(self.imputer.transform(self.descs[item]))
+            vec = torch.from_numpy(np.nan_to_num(vec, nan=0, posinf=0, neginf=0)).float()
             return image, vec
 
         else:
             mol = Chem.MolFromSmiles(self.smiles[item])
             image = smiles_to_image(mol)
-            vec = torch.from_numpy(np.nan_to_num(self.descs[item], nan=0, posinf=0, neginf=0)).float()
+            vec = self.scaler.transform(self.imputer.transform(self.descs[item]))
+            vec = torch.from_numpy(np.nan_to_num(vec, nan=0, posinf=0, neginf=0)).float()
             if self.cache:
                 self.data_cache[self.smiles[item]] = image
             return image, vec
 
     def __len__(self):
         return len(self.smiles)
+
 
 class ImageDataset(Dataset):
     def __init__(self, smiles, property_func=logps, cache=True, values=1):
