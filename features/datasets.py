@@ -96,7 +96,8 @@ class ImageDatasetPreLoaded(Dataset):
         self.descs = descs
         self.property_func = property_func
         with open(imputer_pickle, 'rb') as f:
-            self.imputer, self.scaler = pickle.load(f)['imputer'], pickle.load(f)['scaler']
+            dd = pickle.load(f)
+            self.imputer, self.scaler = dd['imputer'], dd['scaler']
         self.cache = cache
         self.values = values
         self.data_cache = {}
