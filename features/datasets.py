@@ -105,14 +105,14 @@ class ImageDatasetPreLoaded(Dataset):
     def __getitem__(self, item):
         if self.cache and self.smiles[item] in self.data_cache:
             image = self.data_cache[self.smiles[item]]
-            vec = self.scaler.transform(self.imputer.transform(self.descs[item]))
+            vec = self.scaler.transform(self.imputer.transform(self.descs[item].reshape(1,-1))).flatten()
             vec = torch.from_numpy(np.nan_to_num(vec, nan=0, posinf=0, neginf=0)).float()
             return image, vec
 
         else:
             mol = Chem.MolFromSmiles(self.smiles[item])
             image = smiles_to_image(mol)
-            vec = self.scaler.transform(self.imputer.transform(self.descs[item]))
+            vec = self.scaler.transform(self.imputer.transform(self.descs[item].reshape(1,-1))).flatten()
             vec = torch.from_numpy(np.nan_to_num(vec, nan=0, posinf=0, neginf=0)).float()
             if self.cache:
                 self.data_cache[self.smiles[item]] = image
