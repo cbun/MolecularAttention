@@ -110,7 +110,10 @@ class ImageDatasetPreLoaded(Dataset):
             image = self.data_cache[self.smiles[item]]
             image = self.transform(image)
 
-            vec = self.scaler.transform(self.imputer.transform(self.descs[item].reshape(1,-1))).flatten()
+            if self.imputer is not None:
+                vec = self.scaler.transform(self.imputer.transform(self.descs[item].reshape(1,-1))).flatten()
+            else:
+                vec = self.descs[item].flatten()
             vec = torch.from_numpy(np.nan_to_num(vec, nan=0, posinf=0, neginf=0)).float()
             return image, vec
 
@@ -118,7 +121,10 @@ class ImageDatasetPreLoaded(Dataset):
             mol = Chem.MolFromSmiles(self.smiles[item])
             image = smiles_to_image(mol)
             image = self.transform(image)
-            vec = self.scaler.transform(self.imputer.transform(self.descs[item].reshape(1,-1))).flatten()
+            if self.imputer is not None:
+                vec = self.scaler.transform(self.imputer.transform(self.descs[item].reshape(1,-1))).flatten()
+            else:
+                vec = self.descs[item].flatten()
             vec = torch.from_numpy(np.nan_to_num(vec, nan=0, posinf=0, neginf=0)).float()
             if self.cache:
                 self.data_cache[self.smiles[item]] = image
