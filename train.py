@@ -55,6 +55,8 @@ def get_args():
     parser.add_argument('--lr', default=1e-4, type=float, help='learning to use')
     parser.add_argument('--epochs', default=50, type=int, help='number of epochs to use')
     parser.add_argument('--dropout_rate', default=0.1, type=float, help='dropout rate')
+    parser.add_argument('--eval', action='store_true')
+
 
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
@@ -62,6 +64,30 @@ def get_args():
     args.optimizer = get_optimizer(args.optimizer)
     return args
 
+def run_eval(model, train_loader):
+    with torch.no_grad():
+        model.eval()
+        tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
+        train_loss = 0
+        test_loss = 0
+        train_iters = 0
+        test_iters = 0
+
+        model.eval()
+        for i, (drugfeats, value) in enumerate(train_loader):
+            drugfeats, value = drugfeats.to(device), value.to(device)
+            pred, attn = model(drugfeats)
+
+            mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
+            test_loss += mse_loss.item()
+            test_iters += 1
+            tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
+        tracker.log_loss(train_loss / train_iters, train=False)
+        tracker.log_metric(internal=True, train=False)
+
+        print("val",  test_loss / test_iters, 'r2', tracker.get_last_metric(train=False))
+
+    return model, tracker
 
 def trainer(model, optimizer, train_loader, test_loader, epochs=5):
     tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
@@ -175,7 +201,10 @@ if __name__ == '__main__':
     print("Done.")
 
     print("Starting trainer.")
-
+    if args.eval:
+        model.load_state_dict(torch.load(args.o['state']))
+        run_eval(model, train_loader)
+        exit()
     model.to(device)
     optimizer = args.optimizer(model.parameters(), lr=args.lr)
 

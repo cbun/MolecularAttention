@@ -32,7 +32,12 @@ if __name__=='__main__':
     mols = map(Chem.MolFromSmiles, smiles)
     df = calc.pandas(mols, nproc=args.n)
     df = np.array(df, dtype=np.float16)
+    pd.DataFrame(df).to_hdf(args.o +".hdf", 'data')
     df = np.nan_to_num(df, posinf=0, neginf=0, nan=0)
-    np.save(args.o, df)
+
+    try:
+        np.save(args.o, df)
+    except:
+        exit()
     # descs = np.stack(descs).astype(np.float16)
     # np.save(args.o, descs)
