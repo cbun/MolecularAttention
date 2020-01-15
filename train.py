@@ -82,7 +82,7 @@ def run_eval(model, train_loader):
             test_loss += mse_loss.item()
             test_iters += 1
             tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
-        tracker.log_loss(train_loss / train_iters, train=False)
+        tracker.log_loss(test_loss / test_iters, train=False)
         tracker.log_metric(internal=True, train=False)
 
         print("val",  test_loss / test_iters, 'r2', tracker.get_last_metric(train=False))
