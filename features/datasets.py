@@ -92,13 +92,16 @@ class MolecularHolder:
 
 
 class ImageDatasetPreLoaded(Dataset):
-    def __init__(self, smiles, descs, imputer_pickle, property_func=logps, cache=True, values=1, rot=0):
+    def __init__(self, smiles, descs, imputer_pickle=None, property_func=logps, cache=True, values=1, rot=0):
         self.smiles = smiles
         self.descs = descs
         self.property_func = property_func
-        with open(imputer_pickle, 'rb') as f:
-            dd = pickle.load(f)
-            self.imputer, self.scaler = dd['imputer'], dd['scaler']
+        self.imputer = None
+        self.scaler = None
+        if imputer_pickle is not None:
+            with open(imputer_pickle, 'rb') as f:
+                dd = pickle.load(f)
+                self.imputer, self.scaler = dd['imputer'], dd['scaler']
         self.cache = cache
         self.values = values
         self.data_cache = {}
