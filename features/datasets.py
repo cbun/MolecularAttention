@@ -123,7 +123,6 @@ class ImageDatasetPreLoaded(Dataset):
         else:
             mol = Chem.MolFromSmiles(self.smiles[item])
             image = smiles_to_image(mol)
-            image = self.transform(image)
             if self.imputer is not None:
                 vec = self.scaler.transform(self.imputer.transform(self.descs[item].reshape(1,-1))).flatten()
             else:
@@ -131,6 +130,7 @@ class ImageDatasetPreLoaded(Dataset):
             vec = torch.from_numpy(np.nan_to_num(vec, nan=0, posinf=0, neginf=0)).float()
             if self.cache:
                 self.data_cache[self.smiles[item]] = image
+            image = self.transform(image)
             return image, vec
 
     def __len__(self):

@@ -39,8 +39,10 @@ def validate_smiles(smiles):
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', type=str, required=True, help='smiles input file')
-    parser.add_argument('--precomputed_values', type=str, required=False, default=None, help='precomputed decs for trainings')
-    parser.add_argument('--imputer_pickle', type=str, required=False, default=None, help='imputer and scaler for transforming data')
+    parser.add_argument('--precomputed_values', type=str, required=False, default=None,
+                        help='precomputed decs for trainings')
+    parser.add_argument('--imputer_pickle', type=str, required=False, default=None,
+                        help='imputer and scaler for transforming data')
 
     parser.add_argument('-p', choices=list(funcs.keys()), help='select property for model')
     parser.add_argument('-w', type=int, default=8, help='number of workers for data loaders to use.')
@@ -57,12 +59,12 @@ def get_args():
     parser.add_argument('--dropout_rate', default=0.1, type=float, help='dropout rate')
     parser.add_argument('--eval', action='store_true')
 
-
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
         args.metric_plot_prefix = "".join(args.o.split(".")[:-1]) + "_"
     args.optimizer = get_optimizer(args.optimizer)
     return args
+
 
 def run_eval(model, train_loader):
     with torch.no_grad():
@@ -85,9 +87,10 @@ def run_eval(model, train_loader):
         tracker.log_loss(test_loss / test_iters, train=False)
         tracker.log_metric(internal=True, train=False)
 
-        print("val",  test_loss / test_iters, 'r2', tracker.get_last_metric(train=False))
+        print("val", test_loss / test_iters, 'r2', tracker.get_last_metric(train=False))
 
     return model, tracker
+
 
 def trainer(model, optimizer, train_loader, test_loader, epochs=5):
     tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
@@ -140,11 +143,12 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
         torch.save({'model_state': model.state_dict(),
                     'opt_state': optimizer.state_dict(),
                     'history': tracker,
-                    'nheads' : model.nheads}, args.o)
+                    'nheads': model.nheads}, args.o)
     return model, tracker
 
 
-def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1, precompute_frame=None, imputer_pickle=None):
+def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
+                     precompute_frame=None, imputer_pickle=None):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -153,21 +157,24 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
             smiles.append(g)
     del df
 
-    if precompute_frame is not None :
+    if precompute_frame is not None:
         features = np.load(precompute_frame).astype(np.float32)
         features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
 
-        assert(features.shape[0] == len(smiles))
-        train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles, test_size=0.2, random_state=random_seed)
+        assert (features.shape[0] == len(smiles))
+        train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
+                                                                          test_size=0.2, random_state=random_seed)
         train_features = features[train_idx]
         test_features = features[test_idx]
 
-        train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle, property_func=get_properety_function(pname),
-                                     values=MORDRED_SIZE if pname == 'all' else 1)
+        train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
+                                              property_func=get_properety_function(pname),
+                                              values=MORDRED_SIZE if pname == 'all' else 1)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
-        test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle, property_func=get_properety_function(pname),
-                                    values=MORDRED_SIZE if pname == 'all' else 1)
+        test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
+                                             property_func=get_properety_function(pname),
+                                             values=MORDRED_SIZE if pname == 'all' else 1)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
         model = imagemodel.ImageModel(nheads=nheads, outs=MORDRED_SIZE if pname == 'all' else 1)
@@ -197,7 +204,9 @@ if __name__ == '__main__':
     np.random.seed(args.r)
     torch.manual_seed(args.r)
 
-    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads, precompute_frame=args.precomputed_values, imputer_pickle=args.imputer_pickle)
+    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
+                                                        precompute_frame=args.precomputed_values,
+                                                        imputer_pickle=args.imputer_pickle)
     print("Done.")
 
     print("Starting trainer.")

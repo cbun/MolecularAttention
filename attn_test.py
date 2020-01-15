@@ -19,6 +19,7 @@ def get_attn_pred(drugfeats, value):
     drugfeats, value = drugfeats.to(device), value.to(device)
     model.return_attns = True
     pred, attn = model(drugfeats.unsqueeze(0))
+    print('test', torch.max(attn), torch.min(attn))
     attn = attn.squeeze(0).detach()
     attn = torch.sum(attn, dim=0, keepdim=True)
     attn = attn.repeat([3, 1, 1]).unsqueeze(0)
@@ -33,10 +34,10 @@ if __name__ == '__main__':
     my_cmap[:, -1] = np.linspace(0, 1, cmap.N)
     my_cmap = ListedColormap(my_cmap)
 
-    _, dset, model = load_data_models("data/debugset.smi", 32, 1, 1, 'weight', return_datasets=True)
+    _, dset, model = load_data_models("moses/test_scaffolds.smi", 32, 1, 1, 'weight', return_datasets=True, precompute_frame="moses/test_scaffold_hacceptor.npy")
 
     model = ImageModel()
-    model.load_state_dict(torch.load('saved_models/weight_model.pt', map_location='cpu')['model_state'])
+    # model.load_state_dict(torch.load('saved_models/moses_hacceptor.pt', map_location='cpu')['model_state'])
     model.eval()
 
     idx = 234
@@ -47,6 +48,7 @@ if __name__ == '__main__':
     attn = attn.squeeze(0).numpy()
     atn_max = np.max(attn)
     atn_min = np.min(attn)
+    print(atn_min, atn_max)
     attn = (attn - atn_min) / (atn_max - atn_min)
 
     fig, axs = plt.subplots(1, 3, figsize=(18, 6))
