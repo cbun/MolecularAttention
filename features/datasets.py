@@ -7,6 +7,12 @@ import pickle
 from features.generateFeatures import smiles_to_image, smile_to_mordred
 from torchvision import transforms
 
+from rdkit import Chem
+from rdkit import RDConfig
+import os
+import sys
+sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
+import sascorer
 
 def logps(mol):
     try:
@@ -49,6 +55,11 @@ def hdonor_count(mol):
     except:
         return None
 
+def sa_scorer(mol):
+    try:
+        return sascorer.calculateScore(mol)
+    except:
+        return None
 
 funcs = {
     'hdonor': hdonor_count,
@@ -58,7 +69,8 @@ funcs = {
     'logp': logps,
     'rotatable_bonds': rotate_bond_count,
     'all': smile_to_mordred,
-    'image': smiles_to_image
+    'image': smiles_to_image,
+    'sa' : sa_scorer
 }
 
 

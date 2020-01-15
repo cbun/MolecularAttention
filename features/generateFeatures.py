@@ -7,8 +7,14 @@ from mordred import Calculator, descriptors
 from rdkit import Chem
 from rdkit.Chem import rdDepictor
 from rdkit.Chem.Draw import rdMolDraw2D
+from rdkit.Chem import RDConfig
 
 from features.utils import Invert
+
+
+
+
+# now you can import sascore!
 
 smiles_vocab = None  # load charater to int function
 data_location = 'data/'
