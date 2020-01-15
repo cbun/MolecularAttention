@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
     print("Starting trainer.")
     if args.eval:
-        model.load_state_dict(torch.load(args.o['state']))
+        model.load_state_dict(torch.load(args.o)['state'])
         run_eval(model, train_loader)
         exit()
     model.to(device)
