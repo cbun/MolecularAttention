@@ -10,8 +10,13 @@ class ComplexPytorchHistory:
         self.test_r2 = []
         self.max_r2_train = []
         self.min_r2_train = []
+        self.std_r2_train = []
+        self.median_r2_train = []
+
         self.max_r2_test = []
         self.min_r2_test = []
+        self.std_r2_test = []
+        self.median_r2_test = []
         self.metric = metric
         self.metric_name = metric_name
         self.true_tracker, self.pred_tracker = [], []
@@ -37,9 +42,9 @@ class ComplexPytorchHistory:
 
     def get_last_metric(self, train=True):
         if train:
-            return self.train_r2[-1], self.max_r2_train[-1], self.min_r2_train[-1]
+            return self.train_r2[-1], self.std_r2_train[-1], self.median_r2_train[-1], self.max_r2_train[-1], self.min_r2_train[-1]
         else:
-            return self.test_r2[-1], self.max_r2_test[-1], self.min_r2_test[-1]
+            return self.test_r2[-1], self.std_r2_test[-1], self.median_r2_test[-1], self.max_r2_test[-1], self.min_r2_test[-1]
 
     def log_metric(self, r2=None, train=True, internal=False, avg_met=None):
         if internal:
@@ -54,12 +59,16 @@ class ComplexPytorchHistory:
             r2 = np.mean(avg_met)
         if train:
             self.train_r2.append(r2)
-            self.max_r2_train.append(np.max(avg_met))
-            self.min_r2_train.append(np.min(avg_met))
+            self.std_r2_train.append(np.std(avg_met))
+            self.median_r2_train.append(np.median(avg_met))
+            self.max_r2_train.append(np.percentile(avg_met, 0.05))
+            self.min_r2_train.append(np.percentile(avg_met, 0.95))
         else:
             self.test_r2.append(r2)
-            self.max_r2_test.append(np.max(avg_met))
-            self.min_r2_test.append(np.min(avg_met))
+            self.std_r2_test.append(np.std(avg_met))
+            self.median_r2_test.append(np.median(avg_met))
+            self.max_r2_test.append(np.percentile(avg_met, 0.05))
+            self.min_r2_test.append(np.percentile(avg_met, 0.95))
 
     def plot_loss(self, save_file=None, title='Loss', figsize=(8, 5)):
         pass

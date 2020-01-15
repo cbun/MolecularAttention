@@ -66,7 +66,7 @@ def get_args():
     return args
 
 
-def run_eval(model, train_loader):
+def run_eval(model, train_loader, ordinal=False):
     with torch.no_grad():
         model.eval()
         tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
@@ -74,7 +74,8 @@ def run_eval(model, train_loader):
         test_loss = 0
         train_iters = 0
         test_iters = 0
-
+        preds = []
+        values = []
         model.eval()
         for i, (drugfeats, value) in enumerate(train_loader):
             drugfeats, value = drugfeats.to(device), value.to(device)
@@ -84,6 +85,20 @@ def run_eval(model, train_loader):
             test_loss += mse_loss.item()
             test_iters += 1
             tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
+            values.append(value.cpu().detach().numpy().flatten())
+            preds.append(pred.detach().cpu().numpy().flatten())
+
+        if ordinal:
+            preds = np.concatenate(preds)
+            values = np.concatenate(values)
+            preds, values = np.round(preds), np.round(values)
+            incorrect = 0
+            for i in range(preds.shape[0]):
+                if values[i] != preds[i]:
+                    print("incorrect at", i)
+                    incorrect += 1
+            print("total incorrect", incorrect, incorrect / preds.shape[0])
+
         tracker.log_loss(test_loss / test_iters, train=False)
         tracker.log_metric(internal=True, train=False)
 
@@ -148,7 +163,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
 
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
-                     precompute_frame=None, imputer_pickle=None):
+                     precompute_frame=None, imputer_pickle=None, eval=False):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -170,12 +185,12 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=get_properety_function(pname),
                                               values=MORDRED_SIZE if pname == 'all' else 1)
-        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
+        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size, shuffle=(not eval))
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
                                              property_func=get_properety_function(pname),
                                              values=MORDRED_SIZE if pname == 'all' else 1)
-        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
+        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size, shuffle=(not eval))
 
         model = imagemodel.ImageModel(nheads=nheads, outs=MORDRED_SIZE if pname == 'all' else 1)
 
@@ -206,14 +221,14 @@ if __name__ == '__main__':
 
     train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
                                                         precompute_frame=args.precomputed_values,
-                                                        imputer_pickle=args.imputer_pickle)
+                                                        imputer_pickle=args.imputer_pickle, eval=args.eval)
     print("Done.")
 
     print("Starting trainer.")
     if args.eval:
         model.load_state_dict(torch.load(args.o)['model_state'])
         model.to(device)
-        run_eval(model, train_loader)
+        run_eval(model, train_loader, ordinal=True)
         exit()
     model.to(device)
     optimizer = args.optimizer(model.parameters(), lr=args.lr)
