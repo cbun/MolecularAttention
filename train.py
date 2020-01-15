@@ -89,7 +89,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
             optimizer.step()
             train_loss += mse_loss.item()
             train_iters += 1
-            tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
+            tracker.track_metric(pred=pred.detach().cpu().numpy(), value=value.detach().cpu().numpy())
 
         tracker.log_loss(train_loss / train_iters, train=True)
         tracker.log_metric(internal=True, train=True)
