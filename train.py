@@ -127,7 +127,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
             smiles.append(g)
     del df
 
-    if precompute_frame is not None and imputer_pickle is not None:
+    if precompute_frame is not None :
         features = np.load(precompute_frame).astype(np.float32)
         features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
 
