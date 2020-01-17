@@ -113,8 +113,8 @@ def run_eval(model, train_loader, ordinal=False):
     return model, tracker
 
 
-def trainer(model, optimizer, train_loader, test_loader, epochs=5):
-    tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
+def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1):
+    tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory()
     lr_red = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=30, cooldown=0, verbose=True, threshold=1e-4,
                                min_lr=1e-8)
 
@@ -135,7 +135,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
 
             mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
             mse_loss.backward()
-            torch.nn.utils.clip_grad_value_(model.parameters(), 25.0)
+            torch.nn.utils.clip_grad_value_(model.parameters(), 10.0)
             optimizer.step()
             train_loss += mse_loss.item()
             train_iters += 1
@@ -161,15 +161,22 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
         print("Epoch", epochnum, train_loss / train_iters, test_loss / test_iters, 'r2',
               tracker.get_last_metric(train=True), tracker.get_last_metric(train=False))
 
-        torch.save({'model_state': model.state_dict(),
+        if gpus == 1:
+            state = model.state_dict()
+            heads = model.nheads()
+        else:
+            state = model.module.state_dict()
+            heads = model.module.nheads
+        torch.save({'model_state': state,
                     'opt_state': optimizer.state_dict(),
                     'history': tracker,
-                    'nheads': model.nheads}, args.o)
+                    'nheads': heads,
+                    'ntasks' : tasks}, args.o)
     return model, tracker
 
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
-                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1):
+                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -212,6 +219,9 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
         model = imagemodel.ImageModel(nheads=nheads, outs=tasks)
+        if torch.cuda.device_count() > 1 and gpus > 1:
+            print("Let's use", torch.cuda.device_count(), "GPUs!")
+            model = torch.nn.DataParallel(model)
 
     if return_datasets:
         return train_dataset, test_dataset, model
@@ -227,7 +237,7 @@ if __name__ == '__main__':
 
     train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
                                                         precompute_frame=args.precomputed_values,
-                                                        imputer_pickle=args.imputer_pickle, eval=args.eval, tasks=args.t)
+                                                        imputer_pickle=args.imputer_pickle, eval=args.eval, tasks=args.t, gpus=args.g)
     print("Done.")
 
     print("Starting trainer.")
@@ -241,7 +251,7 @@ if __name__ == '__main__':
 
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
-    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=args.epochs)
+    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=args.epochs, gpus=args.g)
     history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.mode + " Loss")
     history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.mode + " " + history.metric_name)
     print("Finished training, now")
