@@ -63,6 +63,7 @@ def get_args():
     parser.add_argument('--dropout_rate', default=0.1, type=float, help='dropout rate')
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--classifacation', action='store_true')
+    parser.add_argument('--mae', action='store_true')
 
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
@@ -121,7 +122,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False):
     return model, tracker
 
 
-def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1, classifacation=False):
+def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1, classifacation=False, mae=False):
     if classifacation:
         tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(
             metric=metrics.roc_auc_score, metric_name='roc-auc')
@@ -146,10 +147,12 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
             drugfeats, value = drugfeats.to(device), value.to(device)
             pred, attn = model(drugfeats)
 
-            if not classifacation:
-                mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
-            else:
+            if classifacation:
                 mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value).mean()
+            elif mae:
+                mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
+            else:
+                mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
             mse_loss.backward()
             torch.nn.utils.clip_grad_value_(model.parameters(), 10.0)
             optimizer.step()
@@ -273,7 +276,7 @@ if __name__ == '__main__':
 
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
-    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=args.epochs, gpus=args.g, classifacation=args.classifacation, tasks=args.t)
+    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=args.epochs, gpus=args.g, classifacation=args.classifacation, tasks=args.t, mae=args.mae)
     history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.mode + " Loss")
     history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.mode + " " + history.metric_name)
     print("Finished training, now")
