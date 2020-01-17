@@ -66,7 +66,7 @@ if __name__ == "__main__":
             "nheads" : tune.sample_from(lambda spec: 2 ** np.random.randint(2, 9)),
             "intermediate_rep" : tune.sample_from(lambda spec: np.random.randint(128, 512)),
             "epochs" : 100,
-            "lr": tune.sample_from(lambda spec: 10 * np.random.randint(-7, -2)),
+            "lr": tune.sample_from(lambda spec: 10.0 ** np.random.randint(-7, -2)),
             "use_gpu": int(args.g)
         })
 
