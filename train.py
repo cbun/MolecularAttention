@@ -266,7 +266,7 @@ if __name__ == '__main__':
     if args.eval:
         model.load_state_dict(torch.load(args.o)['model_state'])
         model.to(device)
-        run_eval(model, train_loader, ordinal=True)
+        run_eval(model, test_loader, ordinal=True)
         exit()
     model.to(device)
     optimizer = args.optimizer(model.parameters(), lr=args.lr)
