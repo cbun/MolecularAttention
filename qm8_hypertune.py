@@ -22,7 +22,6 @@ def get_args():
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
         args.metric_plot_prefix = "".join(args.o.split(".")[:-1]) + "_"
-    args.optimizer = get_optimizer(args.optimizer)
     args.t = 16
     print(args)
     return args
