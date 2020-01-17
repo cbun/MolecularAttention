@@ -45,18 +45,8 @@ def train_qm8(config):
     track.log(mae=history.get_last_metric(train=False)[0])
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="PyTorch MNIST Example")
-    parser.add_argument(
-        "--cuda",
-        action="store_true",
-        default=False,
-        help="Enables GPU training")
-    parser.add_argument(
-        "--smoke-test", action="store_true", help="Finish quickly for testing")
-    parser.add_argument(
-        "--ray-address",
-        help="Address of Ray cluster for seamless distributed execution.")
-    args = parser.parse_args()
+
+    args = get_args()
     if args.ray_address:
         ray.init(address=args.ray_address)
     sched = AsyncHyperBandScheduler(
