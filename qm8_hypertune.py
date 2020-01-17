@@ -23,10 +23,7 @@ def get_args():
     if args.metric_plot_prefix is None:
         args.metric_plot_prefix = "".join(args.o.split(".")[:-1]) + "_"
     args.optimizer = get_optimizer(args.optimizer)
-    if args.p == 'all' and args.t == 1:
-        print("You chose all, but didn't only selected 1 task...")
-        print("Setting to MOrdred default")
-        args.t = MORDRED_SIZE
+    args.t = 16
     print(args)
     return args
 
