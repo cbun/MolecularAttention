@@ -61,6 +61,12 @@ def sa_scorer(mol):
     except:
         return None
 
+def custom_prop_blank(mol):
+    try:
+        return np.nan
+    except:
+        return None
+
 funcs = {
     'hdonor': hdonor_count,
     'hacceptor': hacceptor_count,
@@ -70,7 +76,8 @@ funcs = {
     'rotatable_bonds': rotate_bond_count,
     'all': smile_to_mordred,
     'image': smiles_to_image,
-    'sa' : sa_scorer
+    'sa' : sa_scorer,
+    'custom' : custom_prop_blank,
 }
 
 

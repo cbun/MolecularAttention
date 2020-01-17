@@ -50,6 +50,8 @@ def get_args():
     parser.add_argument('-o', type=str, default='saved_models/model.pt', help='name of file to save model to')
     parser.add_argument('-r', type=int, default=32, help='random seed for splitting.')
     parser.add_argument('-pb', action='store_true')
+    parser.add_argument('-g', type=int, default=1, help='use multiple GPUs')
+    parser.add_argument('-t', type=int, default=1, help='number of tasks')
     parser.add_argument('--nheads', type=int, default=1, help='number of attention heads')
     parser.add_argument('--metric_plot_prefix', default=None, type=str, help='prefix for graphs for performance')
     parser.add_argument('--optimizer', default='adamw', type=str, help='optimizer to use',
@@ -63,6 +65,10 @@ def get_args():
     if args.metric_plot_prefix is None:
         args.metric_plot_prefix = "".join(args.o.split(".")[:-1]) + "_"
     args.optimizer = get_optimizer(args.optimizer)
+    if args.p == 'all' and args.t == 1:
+        print("You chose all, but didn't only selected 1 task...")
+        print("Setting to MOrdred default")
+        args.t  = MORDRED_SIZE
     return args
 
 
@@ -163,7 +169,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5):
 
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
-                     precompute_frame=None, imputer_pickle=None, eval=False):
+                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -184,28 +190,28 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=get_properety_function(pname),
-                                              values=MORDRED_SIZE if pname == 'all' else 1)
+                                              values=tasks)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size, shuffle=(not eval))
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
                                              property_func=get_properety_function(pname),
-                                             values=MORDRED_SIZE if pname == 'all' else 1)
+                                             values=tasks)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size, shuffle=(not eval))
 
-        model = imagemodel.ImageModel(nheads=nheads, outs=MORDRED_SIZE if pname == 'all' else 1)
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks)
 
     else:
         train_idx, test_idx = train_test_split(smiles, test_size=0.2, random_state=random_seed)
 
         train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
-                                     values=MORDRED_SIZE if pname == 'all' else 1)
+                                     values=tasks)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
         test_dataset = ImageDataset(test_idx, property_func=get_properety_function(pname),
-                                    values=MORDRED_SIZE if pname == 'all' else 1)
+                                    values=tasks)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
-        model = imagemodel.ImageModel(nheads=nheads, outs=MORDRED_SIZE if pname == 'all' else 1)
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks)
 
     if return_datasets:
         return train_dataset, test_dataset, model
@@ -221,7 +227,7 @@ if __name__ == '__main__':
 
     train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
                                                         precompute_frame=args.precomputed_values,
-                                                        imputer_pickle=args.imputer_pickle, eval=args.eval)
+                                                        imputer_pickle=args.imputer_pickle, eval=args.eval, tasks=args.t)
     print("Done.")
 
     print("Starting trainer.")

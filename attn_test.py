@@ -47,22 +47,26 @@ if __name__ == '__main__':
     my_cmap[:, -1] = np.linspace(0, 1, cmap.N)
     my_cmap = ListedColormap(my_cmap)
 
-    _, dset, model = load_data_models("moses/test_scaffolds.smi", 32, 1, 1, 'hacceptor', return_datasets=True, precompute_frame="moses/test_scaffold_hacceptor.npy")
+    dset, _, model = load_data_models("moses/test_scaffolds.smi", 32, 1, 1, 'weight', return_datasets=True, precompute_frame="moses/test_scaffolds_weight.npy")
 
     model = ImageModel()
-    model.load_state_dict(torch.load('saved_models/moses_hacceptor.pt', map_location='cpu')['model_state'])
+    model.load_state_dict(torch.load('saved_models/moses_weight.pt', map_location='cpu')['model_state'])
     model.eval()
 
 
     # bads = find_bad_id(dset)
     # print(bads)
 
-    idx = 234
+    idx = 5423
     imout, act = dset[idx]
     # imout = TT.ToTensor()(TF.rotate(TT.ToPILImage()(imout), 221))
-    imout = TT.ToTensor()(TF.to_grayscale(TT.ToPILImage()(imout), 3))
+    # imout = TT.ToTensor()(TF.to_grayscale(TT.ToPILImage()(imout), 3))
     pred, attn, image = get_attn_pred(imout, act)
     print(pred.shape, attn.shape, image.shape)
+
+    # imout = imout * (attn.squeeze(0) < 0.75)
+    # pred, attn, image = get_attn_pred(imout, act)
+    # print(pred.shape, attn.shape, image.shape)
 
     attn = attn.squeeze(0).numpy()
     atn_max = np.max(attn)
