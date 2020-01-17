@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from torchvision import transforms
 from features.generateFeatures import MORDRED_SIZE
 from features.datasets import ImageDataset, funcs, get_properety_function, ImageDatasetPreLoaded
 from metrics import trackers
@@ -63,6 +64,7 @@ def get_args():
     parser.add_argument('--dropout_rate', default=0.1, type=float, help='dropout rate')
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--classifacation', action='store_true')
+    parser.add_argument('--ensemble_eval', action='store_true')
     parser.add_argument('--mae', action='store_true')
 
     args = parser.parse_args()
@@ -77,7 +79,7 @@ def get_args():
     return args
 
 
-def run_eval(model, train_loader, ordinal=False, classifacation=False):
+def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True):
     with torch.no_grad():
         model.eval()
         if classifacation:
@@ -91,17 +93,29 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False):
         test_iters = 0
         preds = []
         values = []
+        predss = []
+        valuess = []
         model.eval()
-        for i, (drugfeats, value) in enumerate(train_loader):
-            drugfeats, value = drugfeats.to(device), value.to(device)
-            pred, attn = model(drugfeats)
 
-            mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
-            test_loss += mse_loss.item()
-            test_iters += 1
-            tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
-            values.append(value.cpu().detach().numpy().flatten())
-            preds.append(pred.detach().cpu().numpy().flatten())
+        for i in range(25 if enseml else 1):
+            for i, (drugfeats, value) in enumerate(train_loader):
+                drugfeats, value = drugfeats.to(device), value.to(device)
+                pred, attn = model(drugfeats)
+
+                mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
+                test_loss += mse_loss.item()
+                test_iters += 1
+                tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
+                valuess.append(value.cpu().detach().numpy().flatten())
+                predss.append(pred.detach().cpu().numpy().flatten())
+
+            preds.append(np.concatenate(predss).flatten())
+            values.append(np.concatenate(valuess).flatten())
+        preds = np.stack(preds)
+        values = np.stack(values)
+        print(preds.shape, values.shape)
+        preds = np.mean(preds, axis=0)
+        values = np.mean(values, axis=0)
 
         if ordinal:
             preds = np.concatenate(preds)
@@ -118,6 +132,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False):
         tracker.log_metric(internal=True, train=False)
 
         print("val", test_loss / test_iters, 'r2', tracker.get_last_metric(train=False))
+        print("avg ensmelb r2, mae", metrics.r2_score(values, preds), metrics.mean_absolute_error(values, preds))
 
     return model, tracker
 
@@ -200,7 +215,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
 
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
-                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, rotate=False, classifacation=False):
+                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, rotate=False, classifacation=False,ensembl=False):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -227,7 +242,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
                                              property_func=get_properety_function(pname),
-                                             values=tasks)
+                                             values=tasks, rot=359 if ensembl else 0)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                  shuffle=(not eval))
 
@@ -264,14 +279,14 @@ if __name__ == '__main__':
     train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
                                                         precompute_frame=args.precomputed_values,
                                                         imputer_pickle=args.imputer_pickle, eval=args.eval,
-                                                        tasks=args.t, gpus=args.g, rotate=args.rotate, classifacation=args.classifacation)
+                                                        tasks=args.t, gpus=args.g, rotate=args.rotate, classifacation=args.classifacation, ensembl=args.ensemble_eval)
     print("Done.")
 
     print("Starting trainer.")
     if args.eval:
         model.load_state_dict(torch.load(args.o)['model_state'])
         model.to(device)
-        run_eval(model, test_loader, ordinal=True)
+        run_eval(model, test_loader, ordinal=True, enseml=args.ensemble_eval)
         exit()
     model.to(device)
     optimizer = args.optimizer(model.parameters(), lr=args.lr)
