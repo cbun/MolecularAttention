@@ -1,0 +1,2 @@
+#!/bin/bash
+python train.py -pb -i moses/train.smi -o saved_models/moses_all.pt -p all --precomputed_value moses/train_descriptors.npy  -b  512 --epochs 25 -w 24 --lr 1e-4 --imputer_pickle data/chembl150k_scalers.pkl --nheads 128 -g 2

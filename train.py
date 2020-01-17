@@ -56,6 +56,7 @@ def get_args():
     parser.add_argument('--metric_plot_prefix', default=None, type=str, help='prefix for graphs for performance')
     parser.add_argument('--optimizer', default='adamw', type=str, help='optimizer to use',
                         choices=['sgd', 'adam', 'adamw'])
+    parser.add_argument('--rotate', action='store_true')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning to use')
     parser.add_argument('--epochs', default=50, type=int, help='number of epochs to use')
     parser.add_argument('--dropout_rate', default=0.1, type=float, help='dropout rate')
@@ -68,7 +69,7 @@ def get_args():
     if args.p == 'all' and args.t == 1:
         print("You chose all, but didn't only selected 1 task...")
         print("Setting to MOrdred default")
-        args.t  = MORDRED_SIZE
+        args.t = MORDRED_SIZE
     print(args)
     return args
 
@@ -172,12 +173,12 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
                     'opt_state': optimizer.state_dict(),
                     'history': tracker,
                     'nheads': heads,
-                    'ntasks' : tasks}, args.o)
+                    'ntasks': tasks}, args.o)
     return model, tracker
 
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
-                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1):
+                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, rotate=False):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -198,13 +199,15 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=get_properety_function(pname),
-                                              values=tasks)
-        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size, shuffle=(not eval))
+                                              values=tasks, rot=rotate)
+        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+                                  shuffle=(not eval))
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
                                              property_func=get_properety_function(pname),
                                              values=tasks)
-        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size, shuffle=(not eval))
+        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+                                 shuffle=(not eval))
 
         model = imagemodel.ImageModel(nheads=nheads, outs=tasks)
 
@@ -212,7 +215,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_idx, test_idx = train_test_split(smiles, test_size=0.2, random_state=random_seed)
 
         train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
-                                     values=tasks)
+                                     values=tasks, rot=rotate)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
         test_dataset = ImageDataset(test_idx, property_func=get_properety_function(pname),
@@ -238,7 +241,8 @@ if __name__ == '__main__':
 
     train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
                                                         precompute_frame=args.precomputed_values,
-                                                        imputer_pickle=args.imputer_pickle, eval=args.eval, tasks=args.t, gpus=args.g)
+                                                        imputer_pickle=args.imputer_pickle, eval=args.eval,
+                                                        tasks=args.t, gpus=args.g, rotate=args.rotate)
     print("Done.")
 
     print("Starting trainer.")
