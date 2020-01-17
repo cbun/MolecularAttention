@@ -61,14 +61,14 @@ class ComplexPytorchHistory:
             self.train_r2.append(r2)
             self.std_r2_train.append(np.std(avg_met))
             self.median_r2_train.append(np.median(avg_met))
-            self.max_r2_train.append(np.percentile(avg_met, 0.05))
-            self.min_r2_train.append(np.percentile(avg_met, 0.95))
+            self.max_r2_train.append(np.percentile(avg_met, 5))
+            self.min_r2_train.append(np.percentile(avg_met, 95))
         else:
             self.test_r2.append(r2)
             self.std_r2_test.append(np.std(avg_met))
             self.median_r2_test.append(np.median(avg_met))
-            self.max_r2_test.append(np.percentile(avg_met, 0.05))
-            self.min_r2_test.append(np.percentile(avg_met, 0.95))
+            self.max_r2_test.append(np.percentile(avg_met, 5))
+            self.min_r2_test.append(np.percentile(avg_met, 95))
 
     def plot_loss(self, save_file=None, title='Loss', figsize=(8, 5)):
         pass
