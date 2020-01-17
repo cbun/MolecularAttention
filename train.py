@@ -165,7 +165,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
 
         if gpus == 1:
             state = model.state_dict()
-            heads = model.nheads()
+            heads = model.nheads
         else:
             state = model.module.state_dict()
             heads = model.module.nheads
