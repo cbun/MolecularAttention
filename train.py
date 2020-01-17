@@ -219,7 +219,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
         model = imagemodel.ImageModel(nheads=nheads, outs=tasks)
-        if torch.cuda.device_count() > 1 and gpus > 1:
+        if gpus > 1:
             print("Let's use", torch.cuda.device_count(), "GPUs!")
             model = torch.nn.DataParallel(model)
 
