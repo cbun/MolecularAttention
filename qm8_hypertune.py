@@ -29,14 +29,14 @@ def get_args():
 def train_qm8(config):
     device = torch.device("cuda")
     args = config['args']
-    train_loader, test_loader, model = load_data_models(args.i, args.r, 8, config['batch_size'], 'custom', nheads=config['nheads'],
+    train_loader, test_loader, model = load_data_models(args.i, args.r, 8, config.get('batch_size'), 'custom', nheads=config.get('nheads'),
                                                         precompute_frame=args.precomputed_values,
                                                         imputer_pickle=args.imputer_pickle, eval=False,
                                                         tasks=args.t, gpus=1, rotate=True,
-                                                        dropout=config['dropout_rate'])
+                                                        dropout=config.get('dropout_rate'))
     model.to(device)
-    optimizer = get_optimizer(config['optimizer'])(model.parameters(), lr=config['optimizer'])
-    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=config['epochs'], gpus=1, tasks=args.t, mae=True)
+    optimizer = get_optimizer(config['optimizer'])(model.parameters(), lr=config.get('lr'))
+    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=config.get('epochs'), gpus=1, tasks=args.t, mae=True)
 
     track.log(mae=history.get_last_metric(train=False)[0])
 
