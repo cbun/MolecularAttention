@@ -95,7 +95,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False):
             drugfeats, value = drugfeats.to(device), value.to(device)
             pred, attn = model(drugfeats)
 
-            mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
+            mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
             test_loss += mse_loss.item()
             test_iters += 1
             tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
