@@ -123,10 +123,10 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False):
 
 def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1, classifacation=False):
     if classifacation:
-        tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory(
+        tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(
             metric=metrics.roc_auc_score, metric_name='roc-auc')
     else:
-        tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
+        tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory()
 
     lr_red = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=30, cooldown=0, verbose=True, threshold=1e-4,
                                min_lr=1e-8)
@@ -273,7 +273,7 @@ if __name__ == '__main__':
 
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
-    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=args.epochs, gpus=args.g, classifacation=args.classifacation)
+    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=args.epochs, gpus=args.g, classifacation=args.classifacation, tasks=args.t)
     history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.mode + " Loss")
     history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.mode + " " + history.metric_name)
     print("Finished training, now")
