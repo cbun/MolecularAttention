@@ -61,7 +61,7 @@ def get_args():
     parser.add_argument('--rotate', action='store_true')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning to use')
     parser.add_argument('--epochs', default=50, type=int, help='number of epochs to use')
-    parser.add_argument('--dropout_rate', default=0.1, type=float, help='dropout rate')
+    parser.add_argument('--dropout_rate', default=0.0, type=float, help='dropout rate')
     parser.add_argument('--eval', action='store_true')
     parser.add_argument('--classifacation', action='store_true')
     parser.add_argument('--ensemble_eval', action='store_true')
@@ -79,7 +79,7 @@ def get_args():
     return args
 
 
-def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True):
+def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1):
     with torch.no_grad():
         model.eval()
         if classifacation:
@@ -109,8 +109,8 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
                 valuess.append(value.cpu().detach().numpy().flatten())
                 predss.append(pred.detach().cpu().numpy().flatten())
 
-            preds.append(np.concatenate(predss).flatten())
-            values.append(np.concatenate(valuess).flatten())
+            preds.append(np.concatenate(predss, axis=0))
+            values.append(np.concatenate(valuess, axis=0))
         preds = np.stack(preds)
         values = np.stack(values)
         print(preds.shape, values.shape)
@@ -118,8 +118,6 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
         values = np.mean(values, axis=0)
 
         if ordinal:
-            preds = np.concatenate(preds)
-            values = np.concatenate(values)
             preds, values = np.round(preds), np.round(values)
             incorrect = 0
             for i in range(preds.shape[0]):
@@ -215,7 +213,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
 
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
-                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, rotate=False, classifacation=False,ensembl=False):
+                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, rotate=False, classifacation=False,ensembl=False, dropout=0):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -246,7 +244,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                  shuffle=(not eval))
 
-        model = imagemodel.ImageModel(nheads=nheads, outs=tasks)
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout)
 
     else:
         train_idx, test_idx = train_test_split(smiles, test_size=0.2, random_state=random_seed)
@@ -259,7 +257,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
                                     values=tasks)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
-        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation)
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout)
     if gpus > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         model = torch.nn.DataParallel(model)
@@ -279,7 +277,7 @@ if __name__ == '__main__':
     train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
                                                         precompute_frame=args.precomputed_values,
                                                         imputer_pickle=args.imputer_pickle, eval=args.eval,
-                                                        tasks=args.t, gpus=args.g, rotate=args.rotate, classifacation=args.classifacation, ensembl=args.ensemble_eval)
+                                                        tasks=args.t, gpus=args.g, rotate=args.rotate, classifacation=args.classifacation, ensembl=args.ensemble_eval, dropout=args.dropout_rate)
     print("Done.")
 
     print("Starting trainer.")
