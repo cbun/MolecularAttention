@@ -69,6 +69,7 @@ def get_args():
         print("You chose all, but didn't only selected 1 task...")
         print("Setting to MOrdred default")
         args.t  = MORDRED_SIZE
+    print(args)
     return args
 
 
@@ -219,9 +220,9 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
         model = imagemodel.ImageModel(nheads=nheads, outs=tasks)
-        if gpus > 1:
-            print("Let's use", torch.cuda.device_count(), "GPUs!")
-            model = torch.nn.DataParallel(model)
+    if gpus > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        model = torch.nn.DataParallel(model)
 
     if return_datasets:
         return train_dataset, test_dataset, model
