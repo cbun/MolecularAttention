@@ -76,10 +76,14 @@ def get_args():
     return args
 
 
-def run_eval(model, train_loader, ordinal=False):
+def run_eval(model, train_loader, ordinal=False, classifacation=False):
     with torch.no_grad():
         model.eval()
-        tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory(metric=metrics.roc_auc_score, metric_name='roc-auc')
+        if classifacation:
+            tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory(metric=metrics.roc_auc_score, metric_name='roc-auc')
+        else:
+            tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
+
         train_loss = 0
         test_loss = 0
         train_iters = 0
@@ -119,9 +123,11 @@ def run_eval(model, train_loader, ordinal=False):
 
 def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1, classifacation=False):
     if classifacation:
-        tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(metric=metrics.)
+        tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory(
+            metric=metrics.roc_auc_score, metric_name='roc-auc')
     else:
-        tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory()
+        tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
+
     lr_red = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=30, cooldown=0, verbose=True, threshold=1e-4,
                                min_lr=1e-8)
 
