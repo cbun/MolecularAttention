@@ -55,7 +55,7 @@ if __name__ == "__main__":
         },
         resources_per_trial={
             "cpu": 8,
-            "gpu": int(args.g)
+            "gpu": 1
         },
         num_samples=50,
         config={

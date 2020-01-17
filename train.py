@@ -296,24 +296,4 @@ if __name__ == '__main__':
     history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.p + " Loss")
     history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.p + " " + history.metric_name)
     print("Finished training, now")
-    #
-    # print("Running evaluation for surface plots...")
-    # res = produce_preds_timing(model, test_loader, cells[test_idx], drugs[test_idx], args.mode)
-    # rds_model = rds.RegressionDetectionSurface(percent_min=-3)
-    #
-    # rds_model.compute(res[1], res[0], stratify=res[2], samples=30)
-    # rds_model.plot(save_file=args.metric_plot_prefix + "rds_on_cell.png",
-    #                title='Regression Enrichment Surface (Avg over Unique Cells)')
-    # rds_model.compute(res[1], res[0], stratify=res[3], samples=30)
-    # rds_model.plot(save_file=args.metric_plot_prefix + "rds_on_drug.png",
-    #                title='Regression Enrichment Surface (Avg over Unique Drugs)')
-    # print("Output all plots with prefix", args.metric_plot_prefix)
-    #
-    # print("r2", metrics.r2_score(res[1], res[0]))
-    # print("mse", metrics.mean_squared_error(res[1], res[0]))
-    #
-    # print("AUC with cutoff", metrics.roc_auc_score((res[1] <= 0.5).astype(np.int32) , (res[0] <= 0.5).astype(np.int32) ))
-    # print("Acc with cutoff", metrics.accuracy_score((res[1] <= 0.5).astype(np.int32) , (res[0] <= 0.5).astype(np.int32) ))
-    # print("BalAcc with cutoff", metrics.balanced_accuracy_score((res[1] <= 0.5).astype(np.int32) , (res[0] <= 0.5).astype(np.int32) ))
-    #
-    # np.save(args.metric_plot_prefix + "preds.npy", res)
+
