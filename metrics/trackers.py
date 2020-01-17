@@ -3,7 +3,7 @@ import numpy as np
 import sklearn
 
 class ComplexPytorchHistory:
-    def __init__(self, metric=sklearn.metrics.r2_score, metric_name='r2'):
+    def __init__(self, metric=sklearn.metrics.r2_score, metric_name='r2', classifacation=False):
         self.train_loss = []
         self.test_loss = []
         self.train_r2 = []

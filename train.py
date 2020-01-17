@@ -13,6 +13,7 @@ from features.generateFeatures import MORDRED_SIZE
 from features.datasets import ImageDataset, funcs, get_properety_function, ImageDatasetPreLoaded
 from metrics import trackers
 from models import imagemodel
+from sklearn import metrics
 
 if torch.cuda.is_available():
     import torch.backends.cudnn
@@ -61,6 +62,7 @@ def get_args():
     parser.add_argument('--epochs', default=50, type=int, help='number of epochs to use')
     parser.add_argument('--dropout_rate', default=0.1, type=float, help='dropout rate')
     parser.add_argument('--eval', action='store_true')
+    parser.add_argument('--classifacation', action='store_true')
 
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
@@ -77,7 +79,7 @@ def get_args():
 def run_eval(model, train_loader, ordinal=False):
     with torch.no_grad():
         model.eval()
-        tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
+        tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory(metric=metrics.roc_auc_score, metric_name='roc-auc')
         train_loss = 0
         test_loss = 0
         train_iters = 0
@@ -115,8 +117,11 @@ def run_eval(model, train_loader, ordinal=False):
     return model, tracker
 
 
-def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1):
-    tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory()
+def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1, classifacation=False):
+    if classifacation:
+        tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(metric=metrics.)
+    else:
+        tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory()
     lr_red = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=30, cooldown=0, verbose=True, threshold=1e-4,
                                min_lr=1e-8)
 
@@ -135,7 +140,10 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
             drugfeats, value = drugfeats.to(device), value.to(device)
             pred, attn = model(drugfeats)
 
-            mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
+            if not classifacation:
+                mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
+            else:
+                mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value).mean()
             mse_loss.backward()
             torch.nn.utils.clip_grad_value_(model.parameters(), 10.0)
             optimizer.step()
@@ -152,7 +160,10 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
 
-                mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
+                if not classifacation:
+                    mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
+                else:
+                    mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value).mean()
                 test_loss += mse_loss.item()
                 test_iters += 1
                 tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
@@ -178,7 +189,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
 
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
-                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, rotate=False):
+                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, rotate=False, classifacation=False):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -222,7 +233,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
                                     values=tasks)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
-        model = imagemodel.ImageModel(nheads=nheads, outs=tasks)
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation)
     if gpus > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         model = torch.nn.DataParallel(model)
@@ -242,7 +253,7 @@ if __name__ == '__main__':
     train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
                                                         precompute_frame=args.precomputed_values,
                                                         imputer_pickle=args.imputer_pickle, eval=args.eval,
-                                                        tasks=args.t, gpus=args.g, rotate=args.rotate)
+                                                        tasks=args.t, gpus=args.g, rotate=args.rotate, classifacation=args.classifacation)
     print("Done.")
 
     print("Starting trainer.")
@@ -256,7 +267,7 @@ if __name__ == '__main__':
 
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
-    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=args.epochs, gpus=args.g)
+    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=args.epochs, gpus=args.g, classifacation=args.classifacation)
     history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.mode + " Loss")
     history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.mode + " " + history.metric_name)
     print("Finished training, now")
