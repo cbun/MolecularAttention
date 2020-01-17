@@ -62,9 +62,9 @@ if __name__ == "__main__":
             'args' : args,
             "optimizer" : tune.grid_search(['adam', 'adamw']),
             "dropout_rate" : tune.uniform(0, 0.3),
-            "batch_size" : tune.uniform(32, 256),
+            "batch_size" : tune.sample_from(lambda spec: np.random.randint(32, 256)),
             "nheads" : tune.sample_from(lambda spec: 2 ** np.random.randint(2, 9)),
-            "intermediate_rep" : tune.uniform(128, 512),
+            "intermediate_rep" : tune.sample_from(lambda spec: np.random.randint(128, 512),
             "epochs" : 100,
             "lr": tune.sample_from(lambda spec: 10 * np.random.randint(-7, -2)),
             "use_gpu": int(args.g)
