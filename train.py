@@ -169,10 +169,12 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
 
-                if not classifacation:
-                    mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
-                else:
+                if classifacation:
                     mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value).mean()
+                elif mae:
+                    mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
+                else:
+                    mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
                 test_loss += mse_loss.item()
                 test_iters += 1
                 tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
@@ -180,7 +182,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
         tracker.log_metric(internal=True, train=False)
 
         lr_red.step(test_loss / test_iters)
-        print("Epoch", epochnum, train_loss / train_iters, test_loss / test_iters, 'r2',
+        print("Epoch", epochnum, train_loss / train_iters, test_loss / test_iters, tracker.metric_name,
               tracker.get_last_metric(train=True), tracker.get_last_metric(train=False))
 
         if gpus == 1:
