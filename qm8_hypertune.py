@@ -47,8 +47,7 @@ def train_qm8(config):
 if __name__ == "__main__":
 
     args = get_args()
-    if args.ray_address:
-        ray.init(address=args.ray_address)
+
     sched = AsyncHyperBandScheduler(
         time_attr="training_iteration", metric="mean_accuracy")
     analysis = tune.run(
