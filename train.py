@@ -135,7 +135,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
     return model, tracker
 
 
-def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1, classifacation=False, mae=False):
+def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1, classifacation=False, mae=False, pb=True):
     if classifacation:
         tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(
             metric=metrics.roc_auc_score, metric_name='roc-auc')
@@ -151,7 +151,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
         train_iters = 0
         test_iters = 0
         model.train()
-        if args.pb:
+        if pb:
             gen = tqdm(enumerate(train_loader))
         else:
             gen = enumerate(train_loader)
@@ -291,7 +291,7 @@ if __name__ == '__main__':
 
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
-    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=args.epochs, gpus=args.g, classifacation=args.classifacation, tasks=args.t, mae=args.mae)
+    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=args.epochs, pb=args.pb, gpus=args.g, classifacation=args.classifacation, tasks=args.t, mae=args.mae)
     history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.p + " Loss")
     history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.p + " " + history.metric_name)
     print("Finished training, now")

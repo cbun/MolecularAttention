@@ -36,7 +36,7 @@ def train_qm8(config):
                                                         dropout=config.get('dropout_rate'))
     model.to(device)
     optimizer = get_optimizer(config['optimizer'])(model.parameters(), lr=config.get('lr'))
-    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=config.get('epochs'), gpus=1, tasks=args.t, mae=True)
+    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=config.get('epochs'), gpus=1, tasks=args.t, mae=True, pb=False)
 
     track.log(mae=history.get_last_metric(train=False)[0])
 
