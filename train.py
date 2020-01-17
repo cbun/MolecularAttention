@@ -279,8 +279,8 @@ if __name__ == '__main__':
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
     model, history = trainer(model, optimizer, train_loader, test_loader, epochs=args.epochs, gpus=args.g, classifacation=args.classifacation, tasks=args.t, mae=args.mae)
-    history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.mode + " Loss")
-    history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.mode + " " + history.metric_name)
+    history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.p + " Loss")
+    history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.p + " " + history.metric_name)
     print("Finished training, now")
     #
     # print("Running evaluation for surface plots...")

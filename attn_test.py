@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
     idx = 5423
     imout, act = dset[idx]
-    # imout = TT.ToTensor()(TF.rotate(TT.ToPILImage()(imout), 221))
+    imout = TT.ToTensor()(TF.rotate(TT.ToPILImage()(imout), 65))
     # imout = TT.ToTensor()(TF.to_grayscale(TT.ToPILImage()(imout), 3))
     pred, attn, image = get_attn_pred(imout, act)
     print(pred.shape, attn.shape, image.shape)
