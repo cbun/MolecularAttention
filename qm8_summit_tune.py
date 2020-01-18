@@ -27,9 +27,9 @@ def train_qm8(ts):
     model.to(device)
     optimizer = get_optimizer('adamw')(model.parameters(), lr=lr)
     model, history = trainer(model, optimizer, train_loader, test_loader, epochs=2, gpus=1, tasks=16, mae=True,
-                             pb=False, cyclic=use_cyclic)
+                             pb=False, cyclic=use_cyclic, verbose=False)
 
-    return history.get_last_metric(train=False)[0]
+    return float(history.test_loss[-1])
 
 
 if __name__ == '__main__':
