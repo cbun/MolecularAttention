@@ -44,7 +44,7 @@ if __name__ == '__main__':
     except:
         pass
     try:
-        os.makedirs('/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/' + str(config['cv']) + '/checkpoints/')
+        os.makedirs('/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(config['cv']) + '/checkpoints/')
     except:
         pass
     hyperdrive(objective=train_qm8,
