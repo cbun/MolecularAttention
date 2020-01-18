@@ -169,7 +169,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
 
 
 def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1, classifacation=False, mae=False,
-            pb=True, out="model.pt", cyclic=False, verbose=True):
+            pb=True, out=None, cyclic=False, verbose=True):
     device = next(model.parameters()).device
     if classifacation:
         tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(
@@ -259,7 +259,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
                      precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, cvs=None, rotate=False,
-                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None):
+                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None,linear_layers=2):
     df = pd.read_csv(fname, header=None)
     smiles = list(df.iloc[:, 0])
 
@@ -287,7 +287,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=None,
-                                              values=tasks, rot=rotate, precomputed_images=precomputed_images)
+                                              values=tasks, rot=rotate, images=precomputed_images)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=(not eval))
 
@@ -298,10 +298,10 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
                                  shuffle=(not eval))
 
         if intermediate_rep is None:
-            model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout)
+            model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout, linear_layers=linear_layers)
         else:
             model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
-                                          intermediate_rep=intermediate_rep)
+                                          intermediate_rep=intermediate_rep, linear_layers=linear_layers)
     else:
         assert(False)
 

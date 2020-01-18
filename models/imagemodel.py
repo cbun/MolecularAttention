@@ -3,7 +3,7 @@ import torchvision.models as models
 
 class ImageModel(nn.Module):
 
-    def __init__(self, intermediate_rep=256,  nheads=1, outs=1, dr=0, classifacation=False):
+    def __init__(self, intermediate_rep=256,  nheads=1, outs=1, dr=0, classifacation=False,linear_layers=2):
         super(ImageModel, self).__init__()
         self.return_attn = True
         self.outs = outs
@@ -24,10 +24,16 @@ class ImageModel(nn.Module):
             nn.Dropout(dr),
         )
 
+        self.linears = nn.ModuleList()
+        for i in range(linear_layers):
+            self.linears.append(nn.Linear(intermediate_rep, 128))
+            self.linears.append(nn.ReLU(),)
+            self.linears.append(nn.Dropout(dr))
+
+        self.linear = nn.Sequential(*self.linears)
+
         self.prop_model = nn.Sequential(
-            nn.Linear(intermediate_rep, intermediate_rep),
-            nn.ReLU(),
-            nn.Dropout(dr),
+            self.linear,
 
             nn.Linear(intermediate_rep, 128),
             nn.ReLU(),
