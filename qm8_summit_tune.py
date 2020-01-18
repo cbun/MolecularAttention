@@ -50,7 +50,7 @@ if __name__ == '__main__':
     hyperdrive(objective=train_qm8,
                hyperparameters=params,
                results_path='/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(config['cv']) + '/results/',
-               checkpoints_path='/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/' + str(config['cv']) + '/checkpoints/',
+               checkpoints_path='/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(config['cv']) + '/checkpoints/',
                model="GP",
                n_iterations=50,
                verbose=True,
