@@ -47,9 +47,8 @@ if __name__ == '__main__':
     my_cmap[:, -1] = np.linspace(0, 1, cmap.N)
     my_cmap = ListedColormap(my_cmap)
 
-    dset, _, model = load_data_models("moses/test_scaffolds.smi", 32, 1, 1, 'weight', return_datasets=True, precompute_frame="moses/test_scaffolds_weight.npy")
+    dset, _, model = load_data_models("moses/test_scaffolds.smi", 32, 1, 1, 'weight', nheads=8, dropout=0.1, return_datasets=True, precompute_frame="moses/test_scaffolds_weight.npy", intermediate_rep=128)
 
-    model = ImageModel()
     model.load_state_dict(torch.load('saved_models/moses_weight.pt', map_location='cpu')['model_state'])
     model.eval()
 
