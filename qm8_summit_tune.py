@@ -16,7 +16,7 @@ def train_qm8(ts):
     dropout_rate, batch_size, lr, use_cyclic, nheads, intermediate, linear_layers = ts
     device = torch.device("cuda")
     train_loader, test_loader, model = load_data_models(config['i'], config['r'], 8, batch_size, 'custom',
-                                                        nheads=batch_size,
+                                                        nheads=int(batch_size),
                                                         precompute_frame=config['precomputed_values'],
                                                         precomputed_images=config['precomputed_images'],
                                                         imputer_pickle=None, eval=False,
