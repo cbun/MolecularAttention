@@ -5,7 +5,7 @@ from rdkit_free_train import trainer, load_data_models, get_optimizer
 
 config = {
     'i': '/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8.smi',
-    'r': '42',
+    'r': 42,
     'precomputed_values': "/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8_values.npy",
     'precomputed_images': "/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8_images.pkl",
     'cv' : 1
