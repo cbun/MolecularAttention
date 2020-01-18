@@ -26,7 +26,7 @@ def train_qm8(ts):
                                                         dropout=dropout_rate, intermediate_rep=intermediate, cvs=config['cv'], linear_layers=linear_layers, model_checkpoint=config['resnet101'])
     model.to(device)
     optimizer = get_optimizer('adamw')(model.parameters(), lr=lr)
-    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=2, gpus=1, tasks=16, mae=True,
+    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=100, gpus=1, tasks=16, mae=True,
                              pb=False, cyclic=use_cyclic, verbose=False)
 
     return float(history.test_loss[-1])
@@ -53,6 +53,6 @@ if __name__ == '__main__':
                results_path='/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(config['cv']) + '/results/',
                checkpoints_path='/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(config['cv']) + '/checkpoints/',
                model="GP",
-               n_iterations=10,
+               n_iterations=50,
                verbose=True,
                random_state=0)

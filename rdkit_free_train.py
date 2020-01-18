@@ -173,11 +173,11 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
     else:
         tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory()
 
-    earlystopping = EarlyStopping(patience=50, delta=1e-5)
+    earlystopping = EarlyStopping(patience=25, delta=1e-5)
     if cyclic:
         lr_red = CosineAnnealingWarmRestarts(optimizer, T_0=20)
     else:
-        lr_red = ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=20, cooldown=0, verbose=verbose,
+        lr_red = ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=15, cooldown=0, verbose=verbose,
                                    threshold=1e-4,
                                    min_lr=1e-8)
 
