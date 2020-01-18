@@ -36,7 +36,7 @@ if __name__ == '__main__':
               (32, 256),  # batch_size
               (1e-6, 1e-2),  # learning rate
               [True, False],  # use cyclic
-              (0, 10),  # nheads
+              (0, 8),  # nheads
               (64, 1024),  # itnermedioate
               (1, 6)]  # linear layers
     try:
