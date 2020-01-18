@@ -1,5 +1,4 @@
 import argparse
-import multiprocessing
 import pickle
 
 import numpy as np
@@ -70,7 +69,6 @@ def get_optimizer(c):
         return torch.optim.Adam
     elif c == 'adamw':
         return torch.optim.AdamW
-
 
 
 def get_args():
@@ -259,10 +257,10 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
                      precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, cvs=None, rotate=False,
-                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None,linear_layers=2):
+                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None,
+                     linear_layers=2, model_checkpoint=None):
     df = pd.read_csv(fname, header=None)
     smiles = list(df.iloc[:, 0])
-
 
     if precomputed_images is not None:
         with open(precomputed_images, 'rb') as f:
@@ -300,12 +298,14 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
                                  shuffle=(not eval))
 
         if intermediate_rep is None:
-            model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout, linear_layers=linear_layers)
+            model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
+                                          linear_layers=linear_layers, model_path=model_checkpoint)
         else:
             model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
-                                          intermediate_rep=intermediate_rep, linear_layers=linear_layers)
+                                          intermediate_rep=intermediate_rep, linear_layers=linear_layers,
+                                          model_path=model_checkpoint)
     else:
-        assert(False)
+        assert (False)
 
     if gpus > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
