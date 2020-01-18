@@ -242,7 +242,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
         tracker.log_metric(internal=True, train=False)
 
         lr_red.step(test_loss / test_iters)
-        earlystopping(test_loss / test_iters, None)
+        earlystopping(test_loss / test_iters)
         if verbose:
             print("Epoch", epochnum, train_loss / train_iters, test_loss / test_iters, tracker.metric_name,
                   tracker.get_last_metric(train=True), tracker.get_last_metric(train=False))
