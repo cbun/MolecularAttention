@@ -111,8 +111,9 @@ class MolecularHolder:
 
 
 class ImageDatasetPreLoaded(Dataset):
-    def __init__(self, smiles, descs, imputer_pickle=None, property_func=logps, cache=True, values=1, rot=0):
+    def __init__(self, smiles, descs, imputer_pickle=None, property_func=logps, cache=True, values=1, rot=0, images=None):
         self.smiles = smiles
+        self.images = None
         self.descs = descs
         self.property_func = property_func
         self.imputer = None
@@ -128,6 +129,17 @@ class ImageDatasetPreLoaded(Dataset):
 
 
     def __getitem__(self, item):
+        if self.images is not None:
+            image = self.images[item]
+            image = self.transform(image)
+
+            if self.imputer is not None:
+                vec = self.scaler.transform(self.imputer.transform(self.descs[item].reshape(1,-1))).flatten()
+            else:
+                vec = self.descs[item].flatten()
+            vec = torch.from_numpy(np.nan_to_num(vec, nan=0, posinf=0, neginf=0)).float()
+            return image, vec
+
         if self.cache and self.smiles[item] in self.data_cache:
             image = self.data_cache[self.smiles[item]]
             image = self.transform(image)

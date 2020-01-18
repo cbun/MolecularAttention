@@ -5,7 +5,6 @@ import pickle
 import numpy as np
 import pandas as pd
 import torch
-from rdkit import Chem
 from sklearn import metrics
 from sklearn.model_selection import KFold
 from sklearn.model_selection import train_test_split
@@ -13,8 +12,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingWarmResta
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from features.datasets import ImageDataset, funcs, get_properety_function, ImageDatasetPreLoaded
-from features.generateFeatures import MORDRED_SIZE
+from features.rdkit_free_datasets import ImageDatasetPreLoaded
 from metrics import trackers
 from models import imagemodel
 
@@ -74,10 +72,6 @@ def get_optimizer(c):
         return torch.optim.AdamW
 
 
-def validate_smiles(smiles):
-    mol = Chem.MolFromSmiles(smiles)
-    return smiles if mol is not None else None
-
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -87,7 +81,7 @@ def get_args():
     parser.add_argument('--imputer_pickle', type=str, required=False, default=None,
                         help='imputer and scaler for transforming data')
 
-    parser.add_argument('-p', choices=list(funcs.keys()), help='select property for model')
+    parser.add_argument('-p', choices=["none"], help='select property for model')
     parser.add_argument('-w', type=int, default=8, help='number of workers for data loaders to use.')
     parser.add_argument('-b', type=int, default=64, help='batch size to use')
     parser.add_argument('-o', type=str, default='saved_models/model.pt', help='name of file to save model to')
@@ -112,10 +106,7 @@ def get_args():
     if args.metric_plot_prefix is None:
         args.metric_plot_prefix = "".join(args.o.split(".")[:-1]) + "_"
     args.optimizer = get_optimizer(args.optimizer)
-    if args.p == 'all' and args.t == 1:
-        print("You chose all, but didn't only selected 1 task...")
-        print("Setting to MOrdred default")
-        args.t = MORDRED_SIZE
+
     print(args)
     return args
 
@@ -270,12 +261,8 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
                      precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, cvs=None, rotate=False,
                      classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None):
     df = pd.read_csv(fname, header=None)
-    smiles = []
-    with multiprocessing.Pool() as p:
-        gg = filter(lambda x: x is not None, p.imap(validate_smiles, list(df.iloc[:, 0])))
-        for g in tqdm(gg, desc='validate smiles'):
-            smiles.append(g)
-    del df
+    smiles = list(df.iloc[:, 0])
+
 
     if precomputed_images is not None:
         with open(precomputed_images, 'rb') as f:
@@ -299,13 +286,13 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         test_features = features[test_idx]
 
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
-                                              property_func=get_properety_function(pname),
+                                              property_func=None,
                                               values=tasks, rot=rotate, precomputed_images=precomputed_images)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=(not eval))
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
-                                             property_func=get_properety_function(pname),
+                                             property_func=None,
                                              values=tasks, rot=359 if ensembl else 0)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                  shuffle=(not eval))
@@ -316,21 +303,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
             model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
                                           intermediate_rep=intermediate_rep)
     else:
-        train_idx, test_idx = train_test_split(smiles, test_size=0.2, random_state=random_seed)
-
-        train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
-                                     values=tasks, rot=rotate)
-        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
-
-        test_dataset = ImageDataset(test_idx, property_func=get_properety_function(pname),
-                                    values=tasks)
-        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
-
-        if intermediate_rep is None:
-            model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout)
-        else:
-            model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
-                                          intermediate_rep=intermediate_rep)
+        assert(False)
 
     if gpus > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
