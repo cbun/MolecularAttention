@@ -18,7 +18,7 @@ def train_qm8(ts):
     nheads = int(2 ** nheads)
     device = torch.device("cuda")
     train_loader, test_loader, model = load_data_models(config['i'], config['r'], 8, batch_size, 'custom',
-                                                        nheads=int(batch_size),
+                                                        nheads=nheads,
                                                         precompute_frame=config['precomputed_values'],
                                                         precomputed_images=config['precomputed_images'],
                                                         imputer_pickle=None, eval=False,
