@@ -288,6 +288,8 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=None,
                                               values=tasks, rot=rotate, images=precomputed_images)
+        print("Batch size", batch_size)
+        batch_size = int(batch_size)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=(not eval))
 
