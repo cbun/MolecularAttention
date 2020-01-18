@@ -53,6 +53,6 @@ if __name__ == '__main__':
                results_path='/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(config['cv']) + '/results/',
                checkpoints_path='/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(config['cv']) + '/checkpoints/',
                model="GP",
-               n_iterations=50,
+               n_iterations=5,
                verbose=True,
                random_state=0)
