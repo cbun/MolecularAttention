@@ -300,7 +300,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=get_properety_function(pname),
-                                              values=tasks, rot=rotate, precomputed_images=precomputed_images)
+                                              values=tasks, rot=rotate)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=(not eval))
 
@@ -319,7 +319,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_idx, test_idx = train_test_split(smiles, test_size=0.2, random_state=random_seed)
 
         train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
-                                     values=tasks, rot=rotate)
+                                     values=tasks)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
         test_dataset = ImageDataset(test_idx, property_func=get_properety_function(pname),
