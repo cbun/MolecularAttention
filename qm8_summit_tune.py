@@ -8,7 +8,8 @@ config = {
     'r': 42,
     'precomputed_values': "/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8_values.npy",
     'precomputed_images': "/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8_images.pkl",
-    'cv' : 1
+    'cv' : 1,
+    'resnet101' : '/gpfs/alpine/med106/proj-shared/aclyde/torch_cache/checkpoints/resnet101-5d3b4d8f.pth'
 }
 
 
@@ -21,7 +22,7 @@ def train_qm8(ts):
                                                         precomputed_images=config['precomputed_images'],
                                                         imputer_pickle=None, eval=False,
                                                         tasks=16, gpus=1, rotate=True,
-                                                        dropout=dropout_rate, intermediate_rep=intermediate, cvs=config['cv'], linear_layers=linear_layers)
+                                                        dropout=dropout_rate, intermediate_rep=intermediate, cvs=config['cv'], linear_layers=linear_layers, model_checkpoint=config['resnet101'])
     model.to(device)
     optimizer = get_optimizer('adamw')(model.parameters(), lr=lr)
     model, history = trainer(model, optimizer, train_loader, test_loader, epochs=2, gpus=1, tasks=16, mae=True,
