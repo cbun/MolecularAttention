@@ -3,7 +3,7 @@ from rdkit import Chem
 from features import generateFeatures
 import argparse
 import pickle
-
+from tqdm import tqdm
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', type=str, required=True)
@@ -19,8 +19,8 @@ if __name__ == '__main__':
 
     smiles = pd.read_csv(args.i, header=None)
     smiles = list(smiles.iloc[:,0])
-    for smile in smiles:
-        mol = Chem.MolFromSmiles(smiles[smile])
+    for smile in tqdm(smiles):
+        mol = Chem.MolFromSmiles(smile)
         if mol is not None:
             image = generateFeatures.smiles_to_image(mol)
             images.append(image)
