@@ -31,7 +31,7 @@ class ImageModel(nn.Module):
 
         self.linears = nn.ModuleList()
         for i in range(linear_layers):
-            self.linears.append(nn.Linear(intermediate_rep, 128))
+            self.linears.append(nn.Linear(intermediate_rep, intermediate_rep))
             self.linears.append(nn.ReLU(),)
             self.linears.append(nn.Dropout(dr))
 
