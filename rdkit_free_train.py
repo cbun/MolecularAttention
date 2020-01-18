@@ -266,7 +266,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
     if precomputed_images is not None:
         with open(precomputed_images, 'rb') as f:
-            precomputed_images = pickle.load(precomputed_images)
+            precomputed_images = pickle.load(f)
 
     if precompute_frame is not None:
         features = np.load(precompute_frame).astype(np.float32)
