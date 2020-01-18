@@ -12,8 +12,8 @@ config = {
 }
 
 
-def train_qm8(config):
-    dropout_rate, batch_size, lr, use_cyclic, nheads, intermediate, linear_layers = config
+def train_qm8(ts):
+    dropout_rate, batch_size, lr, use_cyclic, nheads, intermediate, linear_layers = ts
     device = torch.device("cuda")
     train_loader, test_loader, model = load_data_models(config['i'], config['r'], 8, batch_size, 'custom',
                                                         nheads=batch_size,
@@ -24,7 +24,7 @@ def train_qm8(config):
                                                         dropout=dropout_rate, intermediate_rep=intermediate, cvs=config['cv'], linear_layers=linear_layers)
     model.to(device)
     optimizer = get_optimizer('adamw')(model.parameters(), lr=lr)
-    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=200, gpus=1, tasks=16, mae=True,
+    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=2, gpus=1, tasks=16, mae=True,
                              pb=False, cyclic=use_cyclic)
 
     return history.get_last_metric(train=False)[0]
