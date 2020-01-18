@@ -283,9 +283,12 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_features = features[train_idx]
         test_features = features[test_idx]
 
+        train_precomputed_images = [precomputed_images[i] for i in train_idx]
+        test_precomputed_images = [precomputed_images[i] for i in test_idx]
+
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=None,
-                                              values=tasks, rot=rotate, images=precomputed_images)
+                                              values=tasks, rot=rotate, images=train_precomputed_images)
         print("Batch size", batch_size)
         batch_size = int(batch_size)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
@@ -293,7 +296,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
                                              property_func=None,
-                                             values=tasks, rot=359 if ensembl else 0)
+                                             values=tasks, rot=359, images=test_precomputed_images)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                  shuffle=(not eval))
 
