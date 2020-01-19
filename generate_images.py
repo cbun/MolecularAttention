@@ -7,6 +7,7 @@ from tqdm import tqdm
 from torchvision import transforms
 from features.utils import Invert
 import numpy as np
+import multiprocessing
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', type=str, required=True)
@@ -14,6 +15,8 @@ def get_args():
 
     return parser.parse_args()
 
+def get_image(mol):
+    image = transforms.ToTensor()(Invert()(generateFeatures.smiles_to_image(mol))).numpy().astype(np.float16)
 
 if __name__ == '__main__':
     args = get_args()
@@ -22,10 +25,11 @@ if __name__ == '__main__':
 
     smiles = pd.read_csv(args.i, header=None)
     smiles = list(smiles.iloc[:,0])
-    for smile in tqdm(smiles):
-        mol = Chem.MolFromSmiles(smile)
-        if mol is not None:
-            image = transforms.ToTensor()(Invert()(generateFeatures.smiles_to_image(mol))).numpy().astype(np.float16)
-            images.append(image)
+    smiles = filter(lambda x: x is not None, map(lambda x: Chem.MolFromSmiles(x), smiles))
+    with multiprocessing.Pool(16) as pool:
+        smiles = pool.imap(get_image, smiles)
+        for im in tqdm(smiles):
+            images.append(im)
+
     images = np.stack(images)
     np.save(args.o, images)
