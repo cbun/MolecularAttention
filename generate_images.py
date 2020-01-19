@@ -25,11 +25,12 @@ if __name__ == '__main__':
     images = []
 
     smiles = pd.read_csv(args.i, header=None)
+    n = smiles.shape[0]
     smiles = list(smiles.iloc[:,0])
     smiles = filter(lambda x: x is not None, map(lambda x: Chem.MolFromSmiles(x), smiles))
-    with multiprocessing.Pool(16) as pool:
+    with multiprocessing.Pool(32) as pool:
         smiles = pool.imap(get_image, smiles)
-        for im in tqdm(smiles):
+        for im in tqdm(smiles, n):
             images.append(im)
 
     images = np.stack(images)
