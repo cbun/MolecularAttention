@@ -17,6 +17,7 @@ def get_args():
 
 def get_image(mol):
     image = transforms.ToTensor()(Invert()(generateFeatures.smiles_to_image(mol))).numpy().astype(np.float16)
+    return image
 
 if __name__ == '__main__':
     args = get_args()
