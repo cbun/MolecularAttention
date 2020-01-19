@@ -187,7 +187,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
         test_iters = 0
         model.train()
         if pb:
-            gen = tqdm(enumerate(train_loader), total=int(train_loader.dataset / train_loader.batch_size),
+            gen = tqdm(enumerate(train_loader), total=int(len(train_loader.dataset) / train_loader.batch_size),
                        desc='training')
         else:
             gen = enumerate(train_loader)
@@ -215,7 +215,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
         model.eval()
         with torch.no_grad():
             if pb:
-                gen = tqdm(enumerate(test_loader), total=int(test_loader.dataset / test_loader.batch_size),
+                gen = tqdm(enumerate(test_loader), total=int(len(test_loader.dataset) / test_loader.batch_size),
                            desc='eval')
             else:
                 gen = enumerate(test_loader)
