@@ -25,7 +25,7 @@ if __name__ == '__main__':
     for smile in tqdm(smiles):
         mol = Chem.MolFromSmiles(smile)
         if mol is not None:
-            image = transforms.ToTensor()(Invert()(generateFeatures.smiles_to_image(mol))).numpy().as_type(np.float16)
+            image = transforms.ToTensor()(Invert()(generateFeatures.smiles_to_image(mol))).numpy().astype(np.float16)
             images.append(image)
     images = np.stack(images)
     np.save(args.o, images)
