@@ -188,7 +188,8 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
         test_iters = 0
         model.train()
         if pb:
-            gen = tqdm(enumerate(train_loader))
+            gen = tqdm(enumerate(train_loader), total=int(train_loader.dataset / train_loader.batch_size),
+                       desc='training')
         else:
             gen = enumerate(train_loader)
         for i, (drugfeats, value) in gen:
@@ -214,7 +215,12 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
 
         model.eval()
         with torch.no_grad():
-            for i, (drugfeats, value) in enumerate(test_loader):
+            if pb:
+                gen = tqdm(enumerate(test_loader), total=int(test_loader.dataset / test_loader.batch_size),
+                           desc='eval')
+            else:
+                gen = enumerate(test_loader)
+            for i, (drugfeats, value) in gen:
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
 
