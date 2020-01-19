@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingWarmRestarts
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+from apex import amp
 from features.datasets import ImageDataset, funcs, get_properety_function, ImageDatasetPreLoaded
 from features.generateFeatures import MORDRED_SIZE
 from metrics import trackers
@@ -214,7 +214,8 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
                 mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
             else:
                 mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
-            mse_loss.backward()
+            with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
             torch.nn.utils.clip_grad_value_(model.parameters(), 10.0)
             optimizer.step()
             train_loss += mse_loss.item()
@@ -259,7 +260,9 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
                         'opt_state': optimizer.state_dict(),
                         'history': tracker,
                         'nheads': heads,
-                        'ntasks': tasks}, out)
+                        'ntasks': tasks,
+                        'args' : args,
+                        'amp': amp.state_dict()}, out)
         if earlystopping.early_stop:
             break
     return model, tracker
@@ -354,6 +357,9 @@ if __name__ == '__main__':
         exit()
     model.to(device)
     optimizer = args.optimizer(model.parameters(), lr=args.lr)
+    if args.amp:
+        opt_level = 'O2'
+        model, optimizer = amp.initialize(model, optimizer, opt_level=opt_level)
 
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
