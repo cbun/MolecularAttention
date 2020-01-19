@@ -106,7 +106,7 @@ def get_args():
     parser.add_argument('--ensemble_eval', action='store_true')
     parser.add_argument('--mae', action='store_true')
     parser.add_argument('--cv', default=None, type=int, help='use CV for crossvalidation (1-5)')
-
+    parser.add_argument('--width', default=256, type=int, help='rep size')
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
         args.metric_plot_prefix = "".join(args.o.split(".")[:-1]) + "_"
@@ -343,7 +343,7 @@ if __name__ == '__main__':
                                                         imputer_pickle=args.imputer_pickle, eval=args.eval,
                                                         tasks=args.t, gpus=args.g, rotate=args.rotate,
                                                         classifacation=args.classifacation, ensembl=args.ensemble_eval,
-                                                        dropout=args.dropout_rate, cvs=args.cv)
+                                                        dropout=args.dropout_rate, cvs=args.cv, intermediate_rep=args.width)
     print("Done.")
 
     print("Starting trainer.")
