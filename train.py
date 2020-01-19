@@ -287,9 +287,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
             smiles.append(g)
     del df
 
-    if precomputed_images is not None:
-        with open(precomputed_images, 'rb') as f:
-            precomputed_images = pickle.load(precomputed_images)
+
 
     if cvs is not None:
         kfold = KFold(random_state=random_seed, n_splits=5, shuffle=True)
@@ -299,7 +297,10 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
     else:
         train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
                                                                           test_size=0.2, random_state=random_seed)
-
+    if precomputed_images is not None:
+        precomputed_images = np.load(precomputed_images).astype(np.float32)
+        train_images = precomputed_images[train_idx]
+        test_images = precomputed_images[test_idx]
     if precompute_frame is not None:
         features = np.load(precompute_frame).astype(np.float32)
         features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
@@ -309,13 +310,13 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=get_properety_function(pname),
-                                              values=tasks, rot=rotate, images=None if precomputed_images is None else [precomputed_images[i] for i in train_idx])
+                                              values=tasks, rot=rotate, images=None if precomputed_images is None else train_images)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=(not eval))
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
                                              property_func=get_properety_function(pname),
-                                             values=tasks, rot=359 if ensembl else 0, images=None if precomputed_images is None else [precomputed_images[i] for i in test_idx])
+                                             values=tasks, rot=359 if ensembl else 0, images=None if precomputed_images is None else test_images)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                  shuffle=(not eval))
     else:
