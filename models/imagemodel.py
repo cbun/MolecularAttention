@@ -40,11 +40,11 @@ class ImageModel(nn.Module):
         self.prop_model = nn.Sequential(
             self.linear,
 
-            nn.Linear(intermediate_rep, 128),
+            nn.Linear(intermediate_rep, intermediate_rep),
             nn.ReLU(),
             nn.Dropout(dr),
 
-            nn.Linear(128, self.outs)
+            nn.Linear(intermediate_rep, self.outs)
         )
 
 
