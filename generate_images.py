@@ -29,8 +29,8 @@ if __name__ == '__main__':
     smiles = list(smiles.iloc[:,0])
     smiles = filter(lambda x: x is not None, map(lambda x: Chem.MolFromSmiles(x), smiles))
     with multiprocessing.Pool(32) as pool:
-        smiles = pool.imap(get_image, total=smiles)
-        for im in tqdm(smiles, n):
+        smiles = pool.imap(get_image, smiles)
+        for im in tqdm(smiles,  total=smiles):
             images.append(im)
 
     images = np.stack(images)
