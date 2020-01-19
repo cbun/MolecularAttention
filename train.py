@@ -105,6 +105,7 @@ def get_args():
     parser.add_argument('--classifacation', action='store_true')
     parser.add_argument('--ensemble_eval', action='store_true')
     parser.add_argument('--mae', action='store_true')
+    parser.add_argument('--cv', default=None, type=int, help='use CV for crossvalidation (1-5)')
 
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
@@ -279,43 +280,34 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         with open(precomputed_images, 'rb') as f:
             precomputed_images = pickle.load(precomputed_images)
 
+    if cvs is not None:
+        kfold = KFold(random_state=random_seed, n_splits=5, shuffle=True)
+        train_idx, test_idx = list(kfold.split(list(range(len(smiles)))))[cvs]
+        train_smiles = [smiles[i] for i in train_idx]
+        test_smiles = [smiles[i] for i in test_idx]
+    else:
+        train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
+                                                                          test_size=0.2, random_state=random_seed)
+
     if precompute_frame is not None:
         features = np.load(precompute_frame).astype(np.float32)
         features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
-
         assert (features.shape[0] == len(smiles))
-
-        if cvs is not None:
-            kfold = KFold(random_state=random_seed, n_splits=5, shuffle=True)
-            train_idx, test_idx = list(kfold.split(list(range(len(smiles)))))[cvs]
-            train_smiles = [smiles[i] for i in train_idx]
-            test_smiles = [smiles[i] for i in test_idx]
-        else:
-            train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
-                                                                              test_size=0.2, random_state=random_seed)
         train_features = features[train_idx]
         test_features = features[test_idx]
 
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=get_properety_function(pname),
-                                              values=tasks, rot=rotate)
+                                              values=tasks, rot=rotate, images=[precomputed_images[i] for i in train_idx])
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=(not eval))
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
                                              property_func=get_properety_function(pname),
-                                             values=tasks, rot=359 if ensembl else 0)
+                                             values=tasks, rot=359 if ensembl else 0, images=[precomputed_images[i] for i in test_idx])
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                  shuffle=(not eval))
-
-        if intermediate_rep is None:
-            model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout)
-        else:
-            model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
-                                          intermediate_rep=intermediate_rep)
     else:
-        train_idx, test_idx = train_test_split(smiles, test_size=0.2, random_state=random_seed)
-
         train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
                                      values=tasks)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
@@ -324,11 +316,11 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
                                     values=tasks)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
-        if intermediate_rep is None:
-            model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout)
-        else:
-            model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
-                                          intermediate_rep=intermediate_rep)
+    if intermediate_rep is None:
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout)
+    else:
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
+                                      intermediate_rep=intermediate_rep)
 
     if gpus > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
@@ -351,7 +343,7 @@ if __name__ == '__main__':
                                                         imputer_pickle=args.imputer_pickle, eval=args.eval,
                                                         tasks=args.t, gpus=args.g, rotate=args.rotate,
                                                         classifacation=args.classifacation, ensembl=args.ensemble_eval,
-                                                        dropout=args.dropout_rate)
+                                                        dropout=args.dropout_rate, cvs=args.cv)
     print("Done.")
 
     print("Starting trainer.")

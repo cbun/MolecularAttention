@@ -113,7 +113,7 @@ class MolecularHolder:
 class ImageDatasetPreLoaded(Dataset):
     def __init__(self, smiles, descs, imputer_pickle=None, property_func=logps, cache=True, values=1, rot=0, images=None):
         self.smiles = smiles
-        self.images = None
+        self.images = images
         self.descs = descs
         self.property_func = property_func
         self.imputer = None
