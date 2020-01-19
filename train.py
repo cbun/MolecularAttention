@@ -298,11 +298,12 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
                                                                           test_size=0.2, random_state=random_seed)
     if precomputed_images is not None:
-        precomputed_images = np.load(precomputed_images).astype(np.float32)
+        precomputed_images = np.load(precomputed_images)
         train_images = precomputed_images[train_idx]
         test_images = precomputed_images[test_idx]
+        del precomputed_images
     if precompute_frame is not None:
-        features = np.load(precompute_frame).astype(np.float32)
+        features = np.load(precompute_frame)
         features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
         assert (features.shape[0] == len(smiles))
         train_features = features[train_idx]
