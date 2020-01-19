@@ -84,7 +84,7 @@ def get_args():
                         help='precomputed decs for trainings')
     parser.add_argument('--imputer_pickle', type=str, required=False, default=None,
                         help='imputer and scaler for transforming data')
-
+    parser.add_argument('--precomputed_images', type=str, required=False, default=None)
     parser.add_argument('-p', choices=list(funcs.keys()), help='select property for model')
     parser.add_argument('-w', type=int, default=8, help='number of workers for data loaders to use.')
     parser.add_argument('-b', type=int, default=64, help='batch size to use')
@@ -355,7 +355,7 @@ if __name__ == '__main__':
                                                         imputer_pickle=args.imputer_pickle, eval=args.eval,
                                                         tasks=args.t, gpus=args.g, rotate=args.rotate,
                                                         classifacation=args.classifacation, ensembl=args.ensemble_eval,
-                                                        dropout=args.dropout_rate, cvs=args.cv, intermediate_rep=args.width)
+                                                        dropout=args.dropout_rate, cvs=args.cv, intermediate_rep=args.width, precomputed_images=args.precomputed_images)
     print("Done.")
 
     print("Starting trainer.")
