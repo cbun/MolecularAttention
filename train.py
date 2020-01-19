@@ -107,6 +107,8 @@ def get_args():
     parser.add_argument('--mae', action='store_true')
     parser.add_argument('--cv', default=None, type=int, help='use CV for crossvalidation (1-5)')
     parser.add_argument('--width', default=256, type=int, help='rep size')
+    parser.add_argument('--amp',action='store_true')
+
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
         args.metric_plot_prefix = "".join(args.o.split(".")[:-1]) + "_"
