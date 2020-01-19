@@ -4,6 +4,9 @@ from features import generateFeatures
 import argparse
 import pickle
 from tqdm import tqdm
+from torchvision import transforms
+from features.utils import Invert
+import numpy as np
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', type=str, required=True)
@@ -22,7 +25,7 @@ if __name__ == '__main__':
     for smile in tqdm(smiles):
         mol = Chem.MolFromSmiles(smile)
         if mol is not None:
-            image = generateFeatures.smiles_to_image(mol)
+            image = transforms.ToTensor()(Invert()(generateFeatures.smiles_to_image(mol))).numpy().as_type(np.float16)
             images.append(image)
-    with open(args.o, 'wb') as f:
-        pickle.dump(images, f)
+    images = np.stack(images)
+    np.save(args.o, images)
