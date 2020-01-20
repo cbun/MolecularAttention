@@ -130,7 +130,7 @@ class ImageDatasetPreLoaded(Dataset):
 
     def __getitem__(self, item):
         if self.images is not None:
-            image = transforms.ToPILImage(torch.from_numpy(self.images[item].astype(np.float32) / 255.0))
+            image = transforms.ToPILImage()(torch.from_numpy(self.images[item].astype(np.float32) / 255.0))
             image = self.transform(image)
 
             if self.imputer is not None:
