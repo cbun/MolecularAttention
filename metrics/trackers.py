@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
 
+
 class ComplexPytorchHistory:
     def __init__(self, metric=sklearn.metrics.r2_score, metric_name='r2', classifacation=False):
         self.train_loss = []
@@ -20,7 +21,7 @@ class ComplexPytorchHistory:
         self.metric = metric
         self.metric_name = metric_name
         self.true_tracker, self.pred_tracker = [], []
-        self.init=True
+        self.init = True
 
     def log_loss(self, loss, train=True):
         if train:
@@ -37,14 +38,16 @@ class ComplexPytorchHistory:
             self.init = False
 
         for i in range(vs):
-            self.pred_tracker[i].append(pred[:,  i])
+            self.pred_tracker[i].append(pred[:, i])
             self.true_tracker[i].append(value[:, i])
 
     def get_last_metric(self, train=True):
         if train:
-            return self.train_r2[-1], self.std_r2_train[-1], self.median_r2_train[-1], self.max_r2_train[-1], self.min_r2_train[-1]
+            return self.train_r2[-1], self.std_r2_train[-1], self.median_r2_train[-1], self.max_r2_train[-1], \
+                   self.min_r2_train[-1]
         else:
-            return self.test_r2[-1], self.std_r2_test[-1], self.median_r2_test[-1], self.max_r2_test[-1], self.min_r2_test[-1]
+            return self.test_r2[-1], self.std_r2_test[-1], self.median_r2_test[-1], self.max_r2_test[-1], \
+                   self.min_r2_test[-1]
 
     def log_metric(self, r2=None, train=True, internal=False, avg_met=None):
         if internal:
@@ -52,8 +55,10 @@ class ComplexPytorchHistory:
             for i in range(len(self.true_tracker)):
                 true_tracker = np.concatenate(self.true_tracker[i]).flatten()
                 pred_tracker = np.concatenate(self.pred_tracker[i]).flatten()
+                true_tracker = np.nan_to_num(true_tracker, nan=0, posinf=0, neginf=0)
+                pred_tracker = np.nan_to_num(pred_tracker, nan=0, posinf=0, neginf=0)
                 r2 = self.metric(true_tracker, pred_tracker)
-                avg_met.append(max(0,r2))
+                avg_met.append(max(0, r2))
             self.true_tracker, self.pred_tracker = [], []
             self.init = True
             r2 = np.mean(avg_met)
@@ -75,6 +80,7 @@ class ComplexPytorchHistory:
 
     def plot_metric(self, save_file=None, title='Loss', figsize=(8, 5)):
         pass
+
 
 class PytorchHistory:
     def __init__(self, metric=sklearn.metrics.r2_score, metric_name='r2'):
