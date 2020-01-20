@@ -16,7 +16,7 @@ def get_args():
     return parser.parse_args()
 
 def get_image(mol):
-    image = transforms.ToTensor()(Invert()(generateFeatures.smiles_to_image(mol))).numpy().astype(np.float16)
+    image = (255 * transforms.ToTensor()(Invert()(generateFeatures.smiles_to_image(mol))).numpy()).astype(np.uint8)
     return image
 
 if __name__ == '__main__':
@@ -33,5 +33,5 @@ if __name__ == '__main__':
         for im in tqdm(smiles,  total=n):
             images.append(im)
 
-    images = np.stack(images)
+    images = np.stack(images).astype(np.uint8)
     np.save(args.o, images)
