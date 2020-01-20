@@ -301,7 +301,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         precomputed_images = np.load(precomputed_images)
         train_images = precomputed_images[train_idx]
         test_images = precomputed_images[test_idx]
-        del precomputed_images
+        precomputed_images = True
     if precompute_frame is not None:
         features = np.load(precompute_frame)
         features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
