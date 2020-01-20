@@ -285,7 +285,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
             test_smiles = [smiles[i] for i in test_idx]
         else:
             train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
-                                                                              test_size=0.2, random_state=random_seed)
+                                                                              test_size=0.2, random_state=random_seed, shuffle=True)
         train_features = features[train_idx]
         test_features = features[test_idx]
 

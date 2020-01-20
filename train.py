@@ -108,6 +108,7 @@ def get_args():
     parser.add_argument('--mae', action='store_true')
     parser.add_argument('--cv', default=None, type=int, help='use CV for crossvalidation (1-5)')
     parser.add_argument('--width', default=256, type=int, help='rep size')
+    parser.add_argument('--depth', default=2, type=int, help='rep size')
     parser.add_argument('--amp', type=str, default=None)
 
     args = parser.parse_args()
@@ -282,7 +283,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
                      precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, cvs=None, rotate=False,
-                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None):
+                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None, depth=None):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -300,7 +301,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         test_smiles = [smiles[i] for i in test_idx]
     else:
         train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
-                                                                          test_size=0.2, random_state=random_seed)
+                                                                          test_size=0.2, random_state=random_seed, shuffle=True)
     if precomputed_images is not None:
         precomputed_images = np.load(precomputed_images)
         train_images = precomputed_images[train_idx]
@@ -334,10 +335,10 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
     if intermediate_rep is None:
-        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout)
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout, depth=depth)
     else:
         model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
-                                      intermediate_rep=intermediate_rep)
+                                      intermediate_rep=intermediate_rep, linear_layers=depth)
 
     if gpus > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
@@ -360,7 +361,7 @@ if __name__ == '__main__':
                                                         imputer_pickle=args.imputer_pickle, eval=args.eval,
                                                         tasks=args.t, gpus=args.g, rotate=args.rotate,
                                                         classifacation=args.classifacation, ensembl=args.ensemble_eval,
-                                                        dropout=args.dropout_rate, cvs=args.cv, intermediate_rep=args.width, precomputed_images=args.precomputed_images)
+                                                        dropout=args.dropout_rate, cvs=args.cv, intermediate_rep=args.width, precomputed_images=args.precomputed_images, depth=args.depth)
     print("Done.")
 
     print("Starting trainer.")

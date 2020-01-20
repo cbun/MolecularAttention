@@ -3,7 +3,7 @@ import torchvision.models as models
 import torch
 class ImageModel(nn.Module):
 
-    def __init__(self, intermediate_rep=256,  nheads=1, outs=1, dr=0, classifacation=False,linear_layers=2, model_path=None):
+    def __init__(self, intermediate_rep=256,  nheads=1, outs=1, dr=0, classifacation=False, linear_layers=2, model_path=None):
         super(ImageModel, self).__init__()
         self.return_attn = True
         self.outs = outs
