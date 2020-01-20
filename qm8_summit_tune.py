@@ -26,7 +26,7 @@ def train_qm8(ts):
                                                         tasks=16, gpus=1, rotate=True,
                                                         dropout=dropout_rate, intermediate_rep=intermediate, cvs=config['cv'], linear_layers=linear_layers, model_checkpoint=config['resnet101'])
     model.to(device)
-    opt_level = 'O1'
+    opt_level = 'O2'
     optimizer = get_optimizer('adamw')(model.parameters(), lr=lr)
     model, optimizer = amp.initialize(model, optimizer, opt_level=opt_level)
     model, history = trainer(model, optimizer, train_loader, test_loader, epochs=50, gpus=1, tasks=16, mae=True,
@@ -37,8 +37,8 @@ def train_qm8(ts):
 
 if __name__ == '__main__':
     params = [(0.0, 0.5),  # dropout
-              (32, 256),  # batch_size
-              (1e-6, 1e-2),  # learning rate
+              (32, 384),  # batch_size
+              (1e-5, 1e-2),  # learning rate
               (0, 8),  # nheads
               (64, 1024),  # itnermedioate
               (1, 6)]  # linear layers
