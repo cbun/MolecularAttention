@@ -108,7 +108,7 @@ def get_args():
     parser.add_argument('--mae', action='store_true')
     parser.add_argument('--cv', default=None, type=int, help='use CV for crossvalidation (1-5)')
     parser.add_argument('--width', default=256, type=int, help='rep size')
-    parser.add_argument('--amp',action='store_true')
+    parser.add_argument('--amp', type=str, default=None)
 
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
@@ -180,7 +180,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
 
 
 def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1, classifacation=False, mae=False,
-            pb=True, out="model.pt", cyclic=False, verbose=True):
+            pb=True, out="model.pt", cyclic=False, verbose=True, use_amp=False):
     device = next(model.parameters()).device
     if classifacation:
         tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(
@@ -218,8 +218,11 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
                 mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
             else:
                 mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
-            with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
+            if use_amp:
+                with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                mse_loss.backward()
             torch.nn.utils.clip_grad_value_(model.parameters(), 10.0)
             optimizer.step()
             train_loss += mse_loss.item()
@@ -233,7 +236,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
         with torch.no_grad():
             if pb:
                 gen = tqdm(enumerate(test_loader), total=int(len(test_loader.dataset) / test_loader.batch_size),
-                           desc='training')
+                           desc='eval')
             else:
                 gen = enumerate(test_loader)
             for i, (drugfeats, value) in gen:
@@ -369,12 +372,12 @@ if __name__ == '__main__':
     model.to(device)
     optimizer = args.optimizer(model.parameters(), lr=args.lr)
     if args.amp:
-        opt_level = 'O1'
+        opt_level = args.amp
         model, optimizer = amp.initialize(model, optimizer, opt_level=opt_level)
 
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
-    model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb,
+    model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb, use_amp=args.amp is not None,
                              gpus=args.g, classifacation=args.classifacation, tasks=args.t, mae=args.mae, cyclic=args.cyclic)
     history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.p + " Loss")
     history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.p + " " + history.metric_name)

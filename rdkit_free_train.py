@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingWarmRestarts
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from apex import amp
 
 from features.rdkit_free_datasets import ImageDatasetPreLoaded
 from metrics import trackers
@@ -164,7 +165,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
 
 
 def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1, classifacation=False, mae=False,
-            pb=True, out=None, cyclic=False, verbose=True):
+            pb=True, out=None, cyclic=False, verbose=True, use_amp=False):
     device = next(model.parameters()).device
     if classifacation:
         tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(
@@ -202,7 +203,11 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
                 mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
             else:
                 mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
-            mse_loss.backward()
+            if use_amp:
+                with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                mse_loss.backward()
             torch.nn.utils.clip_grad_value_(model.parameters(), 10.0)
             optimizer.step()
             train_loss += mse_loss.item()
@@ -265,9 +270,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
     df = pd.read_csv(fname, header=None)
     smiles = list(df.iloc[:, 0])
 
-    if precomputed_images is not None:
-        with open(precomputed_images, 'rb') as f:
-            precomputed_images = pickle.load(f)
+
 
     if precompute_frame is not None:
         features = np.load(precompute_frame).astype(np.float32)
@@ -286,12 +289,15 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_features = features[train_idx]
         test_features = features[test_idx]
 
-        train_precomputed_images = [precomputed_images[i] for i in train_idx]
-        test_precomputed_images = [precomputed_images[i] for i in test_idx]
-
+        if precomputed_images is not None:
+            precomputed_images = np.load(precomputed_images)
+            train_images = precomputed_images[train_idx]
+            test_images = precomputed_images[test_idx]
+            precomputed_images = True
+        assert(precomputed_images == True)
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=None,
-                                              values=tasks, rot=rotate, images=train_precomputed_images)
+                                              values=tasks, rot=rotate, images=train_images)
         print("Batch size", batch_size)
         batch_size = int(batch_size)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
@@ -299,7 +305,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
                                              property_func=None,
-                                             values=tasks, rot=359, images=test_precomputed_images)
+                                             values=tasks, rot=0, images=test_images)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                  shuffle=(not eval))
 

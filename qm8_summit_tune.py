@@ -2,6 +2,7 @@ import torch
 from hyperspace import hyperdrive
 import os
 from rdkit_free_train import trainer, load_data_models, get_optimizer
+from apex import amp
 
 config = {
     'i': '/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8.smi',
@@ -14,7 +15,7 @@ config = {
 
 
 def train_qm8(ts):
-    dropout_rate, batch_size, lr, use_cyclic, nheads, intermediate, linear_layers = ts
+    dropout_rate, batch_size, lr, nheads, intermediate, linear_layers = ts
     nheads = int(2 ** nheads)
     device = torch.device("cuda")
     train_loader, test_loader, model = load_data_models(config['i'], config['r'], 8, batch_size, 'custom',
@@ -25,9 +26,11 @@ def train_qm8(ts):
                                                         tasks=16, gpus=1, rotate=True,
                                                         dropout=dropout_rate, intermediate_rep=intermediate, cvs=config['cv'], linear_layers=linear_layers, model_checkpoint=config['resnet101'])
     model.to(device)
+    opt_level = 'O1'
     optimizer = get_optimizer('adamw')(model.parameters(), lr=lr)
+    model, optimizer = amp.initialize(model, optimizer, opt_level=opt_level)
     model, history = trainer(model, optimizer, train_loader, test_loader, epochs=50, gpus=1, tasks=16, mae=True,
-                             pb=False, cyclic=use_cyclic, verbose=False)
+                             pb=False, verbose=False, use_amp=True)
 
     return float(history.test_loss[-1])
 
@@ -36,7 +39,6 @@ if __name__ == '__main__':
     params = [(0.0, 0.5),  # dropout
               (32, 256),  # batch_size
               (1e-6, 1e-2),  # learning rate
-              [True, False],  # use cyclic
               (0, 8),  # nheads
               (64, 1024),  # itnermedioate
               (1, 6)]  # linear layers
