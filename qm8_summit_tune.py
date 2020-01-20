@@ -8,7 +8,7 @@ config = {
     'i': '/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8.smi',
     'r': 42,
     'precomputed_values': "/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8_values.npy",
-    'precomputed_images': "/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8_images.pkl",
+    'precomputed_images': "/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8_images.npy",
     'cv' : 1,
     'resnet101' : '/gpfs/alpine/med106/proj-shared/aclyde/torch_cache/checkpoints/resnet101-5d3b4d8f.pth'
 }
