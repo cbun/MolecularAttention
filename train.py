@@ -91,6 +91,7 @@ def get_args():
     parser.add_argument('-o', type=str, default='saved_models/model.pt', help='name of file to save model to')
     parser.add_argument('-r', type=int, default=32, help='random seed for splitting.')
     parser.add_argument('-pb', action='store_true')
+    parser.add_argument('--cyclic', action='store_true')
     parser.add_argument('-g', type=int, default=1, help='use multiple GPUs')
     parser.add_argument('-t', type=int, default=1, help='number of tasks')
     parser.add_argument('--nheads', type=int, default=1, help='number of attention heads')
@@ -374,7 +375,7 @@ if __name__ == '__main__':
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
     model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb,
-                             gpus=args.g, classifacation=args.classifacation, tasks=args.t, mae=args.mae)
+                             gpus=args.g, classifacation=args.classifacation, tasks=args.t, mae=args.mae, cyclic=args.cyclic)
     history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.p + " Loss")
     history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.p + " " + history.metric_name)
     print("Finished training, now")
