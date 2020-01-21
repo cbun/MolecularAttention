@@ -217,7 +217,8 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
         for v in gen:
             if use_mask:
                 i, (drugfeats, value, mask) = v
-                mask = mask.float().to(device).view(drugfeats.shape[0], tasks)
+                mask = mask.float().to(device)
+                print("trainer mask shape", mask.shape)
             else:
                 i, (drugfeats, value) = v
             optimizer.zero_grad()
