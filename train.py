@@ -233,7 +233,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
             else:
                 mse_loss = torch.nn.functional.mse_loss(pred, value)
             if use_mask:
-                mse_loss = (mask * mse_loss)/ torch.sum(mask)
+                mse_loss = (mask * mse_loss).sum() / torch.sum(mask)
             else:
                 mse_loss = mse_loss.mean()
             with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
