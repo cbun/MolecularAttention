@@ -59,8 +59,8 @@ class ComplexPytorchHistory:
         if internal:
             avg_met = []
             for i in range(len(self.true_tracker)):
-                true_tracker = np.concatenate(self.true_tracker[i]).flatten()
-                pred_tracker = np.concatenate(self.pred_tracker[i]).flatten()
+                true_tracker = np.concatenate(self.true_tracker[i].flatten()).flatten()
+                pred_tracker = np.concatenate(self.pred_tracker[i].flatten()).flatten()
                 true_tracker = np.nan_to_num(true_tracker, nan=0, posinf=0, neginf=0)
                 pred_tracker = np.nan_to_num(pred_tracker, nan=0, posinf=0, neginf=0)
                 r2 = self.metric(true_tracker, pred_tracker)
