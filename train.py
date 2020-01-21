@@ -336,6 +336,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
                                                                           test_size=0.2, random_state=random_seed,
                                                                           shuffle=True)
     if mask is not None:
+        print("using mask")
         mask = np.load(precomputed_images)
         train_mask = mask[train_idx]
         test_mask = mask[test_idx]
