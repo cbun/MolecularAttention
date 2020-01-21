@@ -29,8 +29,10 @@ class ComplexPytorchHistory:
         else:
             self.test_loss.append(loss)
 
-    def track_metric(self, pred, value):
+    def track_metric(self, pred, value, mask=None):
         vs = pred.shape[-1]
+        if mask is not None:
+            mask = mask.astype(np.bool)
         if self.init:
             for i in range(vs):
                 self.true_tracker.append([])
@@ -38,8 +40,12 @@ class ComplexPytorchHistory:
             self.init = False
 
         for i in range(vs):
-            self.pred_tracker[i].append(pred[:, i])
-            self.true_tracker[i].append(value[:, i])
+            if mask is not None:
+                self.pred_tracker[i].append(pred[np.where(mask[:, i]), i])
+                self.true_tracker[i].append(value[np.where(mask[:, i]), i])
+            else:
+                self.pred_tracker[i].append(pred[:, i])
+                self.true_tracker[i].append(value[:, i])
 
     def get_last_metric(self, train=True):
         if train:
