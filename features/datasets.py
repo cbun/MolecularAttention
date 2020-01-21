@@ -111,7 +111,7 @@ class MolecularHolder:
 
 
 class ImageDatasetPreLoaded(Dataset):
-    def __init__(self, smiles, descs, imputer_pickle=None, property_func=logps, cache=True, values=1, rot=0, images=None, bw=False):
+    def __init__(self, smiles, descs, imputer_pickle=None, property_func=logps, cache=True, values=1, rot=0, images=None, bw=False, mask=None):
         self.smiles = smiles
         self.images = images
         self.descs = descs
@@ -125,6 +125,11 @@ class ImageDatasetPreLoaded(Dataset):
         self.cache = cache
         self.values = values
         self.data_cache = {}
+        if mask is not None:
+            self.mask = mask
+            self.use_mask = True
+        else:
+            self.use_mask = False
         if bw:
             self.transform = transforms.Compose([transforms.RandomRotation(degrees=(0, rot)), transforms.Grayscale(num_output_channels=3), transforms.ToTensor()])
         else:
@@ -141,9 +146,14 @@ class ImageDatasetPreLoaded(Dataset):
             else:
                 vec = self.descs[item].flatten()
             vec = torch.from_numpy(np.nan_to_num(vec, nan=0, posinf=0, neginf=0)).float()
-            return image, vec
+            if self.use_mask:
+                return image, vec, self.mask[item]
+            else:
+                return image, vec
 
         if self.cache and self.smiles[item] in self.data_cache:
+            if self.use_mask:
+                assert(False)
             image = self.data_cache[self.smiles[item]]
             image = self.transform(image)
 
@@ -155,6 +165,8 @@ class ImageDatasetPreLoaded(Dataset):
             return image, vec
 
         else:
+            if self.use_mask:
+                assert(False)
             mol = Chem.MolFromSmiles(self.smiles[item])
             image = smiles_to_image(mol)
             if self.imputer is not None:

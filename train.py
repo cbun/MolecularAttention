@@ -110,6 +110,7 @@ def get_args():
     parser.add_argument('--depth', default=2, type=int, help='rep size')
     parser.add_argument('--amp', type=str, default='O0', choices=['O0', 'O1', 'O2', 'O3'])
     parser.add_argument('--bw', action='store_true')
+    parser.add_argument('--mask', type=str, default=None)
 
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
@@ -186,7 +187,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
 
 
 def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, classifacation=False, mae=False,
-            pb=True, out="model.pt", cyclic=False, verbose=True):
+            pb=True, out="model.pt", cyclic=False, verbose=True, use_mask=False):
     device = next(model.parameters()).device
     if classifacation:
         tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(
@@ -213,17 +214,24 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
                        desc='training')
         else:
             gen = enumerate(train_loader)
-        for i, (drugfeats, value) in gen:
+        for v in gen:
+            if use_mask:
+                i, (drugfeats, value, mask) = v
+            else:
+                i, (drugfeats, value) = v
             optimizer.zero_grad()
             drugfeats, value = drugfeats.to(device), value.to(device)
             pred, attn = model(drugfeats)
 
             if classifacation:
-                mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value).mean()
+                mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value)
             elif mae:
-                mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
+                mse_loss = torch.nn.functional.l1_loss(pred, value)
             else:
-                mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
+                mse_loss = torch.nn.functional.mse_loss(pred, value)
+            if use_mask:
+                mse_loss = mask * mse_loss
+            mse_loss = mse_loss.mean()
             with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
 
@@ -231,7 +239,13 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
             optimizer.step()
             train_loss += mse_loss.item()
             train_iters += 1
-            tracker.track_metric(pred=pred.detach().cpu().numpy(), value=value.detach().cpu().numpy())
+            if use_mask:
+                pred = pred.detach().cpu() * mask.detach().cpu()
+                value = value.detach().cpu() * mask.detach().cpu()
+            else:
+                pred = pred.detach().cpu()
+                value = value.detach().cpu()
+            tracker.track_metric(pred=pred.numpy(), value=value.numpy())
 
         tracker.log_loss(train_loss / train_iters, train=True)
         tracker.log_metric(internal=True, train=True)
@@ -243,19 +257,34 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
                            desc='eval')
             else:
                 gen = enumerate(test_loader)
-            for i, (drugfeats, value) in gen:
+            for v in gen:
+                if use_mask:
+                    i, (drugfeats, value, mask) = v
+                    mask = mask.to(device)
+                else:
+                    i, (drugfeats, value) = v
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
 
                 if classifacation:
-                    mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value).mean()
+                    mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value)
                 elif mae:
-                    mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
+                    mse_loss = torch.nn.functional.l1_loss(pred, value)
                 else:
-                    mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
+                    mse_loss = torch.nn.functional.mse_loss(pred, value)
+                if use_mask:
+                    mse_loss = mask * mse_loss
+                mse_loss = mse_loss.mean()
                 test_loss += mse_loss.item()
                 test_iters += 1
-                tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
+
+                if use_mask:
+                    pred = pred.detach().cpu() * mask.detach().cpu()
+                    value = value.detach().cpu() * mask.detach().cpu()
+                else:
+                    pred = pred.detach().cpu()
+                    value = value.detach().cpu()
+                tracker.track_metric(pred.numpy(), value.numpy())
         tracker.log_loss(train_loss / train_iters, train=False)
         tracker.log_metric(internal=True, train=False)
 
@@ -283,7 +312,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
                      precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, cvs=None, rotate=False,
                      classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None,
-                     depth=None, bw=True):
+                     depth=None, bw=True,mask=None):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -301,6 +330,10 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
                                                                           test_size=0.2, random_state=random_seed,
                                                                           shuffle=True)
+    if mask is not None:
+        mask = np.load(precomputed_images)
+        train_mask = mask[train_idx]
+        test_mask = mask[test_idx]
     if precomputed_images is not None:
         precomputed_images = np.load(precomputed_images)
         train_images = precomputed_images[train_idx]
@@ -316,18 +349,20 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=get_properety_function(pname),
                                               values=tasks, rot=rotate, bw=bw,
-                                              images=None if precomputed_images is None else train_images)
+                                              images=None if precomputed_images is None else train_images,
+                                              mask=None if mask is None else train_mask)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=(not eval))
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
                                              property_func=get_properety_function(pname),
                                              values=tasks, rot=359 if ensembl else 0,
-                                             images=None if precomputed_images is None else test_images, bw=bw)
+                                             images=None if precomputed_images is None else test_images, bw=bw,
+                                             mask=None if mask is None else test_mask)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                  shuffle=(not eval))
     else:
-        assert(False)
+        assert (False)
         # train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
         #                              values=tasks)
         # train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
@@ -361,7 +396,8 @@ if __name__ == '__main__':
                                                         classifacation=args.classifacation, ensembl=args.ensemble_eval,
                                                         dropout=args.dropout_rate, cvs=args.cv,
                                                         intermediate_rep=args.width,
-                                                        precomputed_images=args.precomputed_images, depth=args.depth, bw=args.bw)
+                                                        precomputed_images=args.precomputed_images, depth=args.depth,
+                                                        bw=args.bw)
     print("Done.")
 
     print("Starting trainer.")
@@ -377,8 +413,9 @@ if __name__ == '__main__':
 
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
-    model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb, classifacation=args.classifacation, tasks=args.t, mae=args.mae,
-                             cyclic=args.cyclic)
+    model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb,
+                             classifacation=args.classifacation, tasks=args.t, mae=args.mae,
+                             cyclic=args.cyclic, use_mask=args.mask is not None)
     history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.p + " Loss")
     history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.p + " " + history.metric_name)
     print("Finished training, now")
