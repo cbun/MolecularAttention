@@ -377,9 +377,7 @@ if __name__ == '__main__':
 
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
-    model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb,
-                             use_amp=args.amp,
-                             gpus=args.g, classifacation=args.classifacation, tasks=args.t, mae=args.mae,
+    model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb, classifacation=args.classifacation, tasks=args.t, mae=args.mae,
                              cyclic=args.cyclic)
     history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.p + " Loss")
     history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.p + " " + history.metric_name)
