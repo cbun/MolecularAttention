@@ -128,7 +128,8 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
     with torch.no_grad():
         model.eval()
         if classifacation:
-            tracker = trackers.ComplexPytorchHistory(metric=metrics.roc_auc_score, metric_name='roc-auc') if tasks > 1 else trackers.PytorchHistory(
+            tracker = trackers.ComplexPytorchHistory(metric=metrics.roc_auc_score,
+                                                     metric_name='roc-auc') if tasks > 1 else trackers.PytorchHistory(
                 metric=metrics.roc_auc_score, metric_name='roc-auc')
         else:
             tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory()
@@ -190,7 +191,8 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
             pb=True, out="model.pt", cyclic=False, verbose=True, use_mask=False):
     device = next(model.parameters()).device
     if classifacation:
-        tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(
+        tracker = trackers.ComplexPytorchHistory(metric=metrics.roc_auc_score,
+                                                 metric_name='roc-auc') if tasks > 1 else trackers.PytorchHistory(
             metric=metrics.roc_auc_score, metric_name='roc-auc')
     else:
         tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory()
@@ -313,7 +315,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
                      precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, cvs=None, rotate=False,
                      classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None,
-                     depth=None, bw=True,mask=None):
+                     depth=None, bw=True, mask=None):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
