@@ -127,7 +127,6 @@ class ImageDatasetPreLoaded(Dataset):
         self.data_cache = {}
         if mask is not None:
             self.mask = mask
-            print("mask shape", mask.shape)
             self.use_mask = True
         else:
             self.use_mask = False

@@ -218,7 +218,6 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
             if use_mask:
                 i, (drugfeats, value, mask) = v
                 mask = mask.float().to(device)
-                print("trainer mask shape", mask.shape)
             else:
                 i, (drugfeats, value) = v
             optimizer.zero_grad()
@@ -242,8 +241,6 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
             train_loss += mse_loss.item()
             train_iters += 1
             if use_mask:
-                print(pred.shape, mask.shape, value.shape)
-
                 pred = pred.detach().cpu() * mask.detach().cpu()
                 value = value.detach().cpu() * mask.detach().cpu()
             else:
@@ -264,7 +261,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
             for v in gen:
                 if use_mask:
                     i, (drugfeats, value, mask) = v
-                    mask = mask.to(device)
+                    mask = mask.float().to(device)
                 else:
                     i, (drugfeats, value) = v
                 drugfeats, value = drugfeats.to(device), value.to(device)
