@@ -41,7 +41,7 @@ def train_qm8(ts):
 
 if __name__ == '__main__':
     params = [(0.0, 0.5),  # dropout
-              (32, 384),  # batch_size
+              (128, 384),  # batch_size
               (1e-5, 1e-2),  # learning rate
               (0, 8),  # nheads
               (64, 1024),  # itnermedioate
