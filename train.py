@@ -239,7 +239,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
             with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
 
-            torch.nn.utils.clip_grad_value_(model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_value_(model.parameters(), 10.0)
             optimizer.step()
             train_loss += mse_loss.item()
             train_iters += 1
