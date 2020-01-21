@@ -339,11 +339,16 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         mask = np.load(precomputed_images)
         train_mask = mask[train_idx]
         test_mask = mask[test_idx]
+        mask = True
+    else:
+        mask = False
     if precomputed_images is not None:
         precomputed_images = np.load(precomputed_images)
         train_images = precomputed_images[train_idx]
         test_images = precomputed_images[test_idx]
         precomputed_images = True
+    else:
+        precomputed_images = False
     if precompute_frame is not None:
         features = np.load(precompute_frame)
         features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
@@ -354,16 +359,16 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=get_properety_function(pname),
                                               values=tasks, rot=rotate, bw=bw,
-                                              images=None if precomputed_images is None else train_images,
-                                              mask=None if mask is None else train_mask)
+                                              images=None if not precomputed_images else train_images,
+                                              mask=None if not mask else train_mask)
         train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=(not eval))
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
                                              property_func=get_properety_function(pname),
                                              values=tasks, rot=359 if ensembl else 0,
-                                             images=None if precomputed_images is None else test_images, bw=bw,
-                                             mask=None if mask is None else test_mask)
+                                             images=None if not precomputed_images else test_images, bw=bw,
+                                             mask=None if not mask else test_mask)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                  shuffle=(not eval))
     else:
