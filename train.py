@@ -284,12 +284,13 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
                 test_iters += 1
 
                 if use_mask:
-                    pred = pred.detach().cpu() * mask.detach().cpu()
-                    value = value.detach().cpu() * mask.detach().cpu()
+                    pred = pred.detach().cpu()
+                    value = value.detach().cpu()
+                    tracker.track_metric(pred=pred.numpy(), value=value.numpy(), mask=mask.detach().cpu().numpy())
                 else:
                     pred = pred.detach().cpu()
                     value = value.detach().cpu()
-                tracker.track_metric(pred.numpy(), value.numpy())
+                    tracker.track_metric(pred=pred.numpy(), value=value.numpy())
         tracker.log_loss(train_loss / train_iters, train=False)
         tracker.log_metric(internal=True, train=False)
 
