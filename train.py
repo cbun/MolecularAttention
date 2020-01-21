@@ -128,7 +128,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
     with torch.no_grad():
         model.eval()
         if classifacation:
-            tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(
+            tracker = trackers.ComplexPytorchHistory(metric=metrics.roc_auc_score, metric_name='roc-auc') if tasks > 1 else trackers.PytorchHistory(
                 metric=metrics.roc_auc_score, metric_name='roc-auc')
         else:
             tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory()
