@@ -1,16 +1,15 @@
 import argparse
-import pickle
 
 import numpy as np
 import pandas as pd
 import torch
+from apex import amp
 from sklearn import metrics
 from sklearn.model_selection import KFold
 from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingWarmRestarts
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from apex import amp
 
 from features.rdkit_free_datasets import ImageDatasetPreLoaded
 from metrics import trackers
@@ -83,7 +82,6 @@ def get_args():
     parser.add_argument('-o', type=str, default='saved_models/model.pt', help='name of file to save model to')
     parser.add_argument('-r', type=int, default=32, help='random seed for splitting.')
     parser.add_argument('-pb', action='store_true')
-    parser.add_argument('-g', type=int, default=1, help='use multiple GPUs')
     parser.add_argument('-t', type=int, default=1, help='number of tasks')
     parser.add_argument('--nheads', type=int, default=1, help='number of attention heads')
     parser.add_argument('--metric_plot_prefix', default=None, type=str, help='prefix for graphs for performance')
@@ -107,65 +105,65 @@ def get_args():
     return args
 
 
-def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1):
-    with torch.no_grad():
-        model.eval()
-        if classifacation:
-            tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory(
-                metric=metrics.roc_auc_score, metric_name='roc-auc')
-        else:
-            tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
+# def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1):
+#     with torch.no_grad():
+#         model.eval()
+#         if classifacation:
+#             tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory(
+#                 metric=metrics.roc_auc_score, metric_name='roc-auc')
+#         else:
+#             tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
+#
+#         train_loss = 0
+#         test_loss = 0
+#         train_iters = 0
+#         test_iters = 0
+#         preds = []
+#         values = []
+#         predss = []
+#         valuess = []
+#         model.eval()
+#
+#         for i in range(25 if enseml else 1):
+#             for i, (drugfeats, value) in enumerate(train_loader):
+#                 drugfeats, value = drugfeats.to(device), value.to(device)
+#                 pred, attn = model(drugfeats)
+#
+#                 mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
+#                 test_loss += mse_loss.item()
+#                 test_iters += 1
+#                 tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
+#                 valuess.append(value.cpu().detach().numpy().flatten())
+#                 predss.append(pred.detach().cpu().numpy().flatten())
+#
+#             preds.append(np.concatenate(predss, axis=0))
+#             values.append(np.concatenate(valuess, axis=0))
+#         preds = np.stack(preds)
+#         values = np.stack(values)
+#         print(preds.shape, values.shape)
+#         preds = np.mean(preds, axis=0)
+#         values = np.mean(values, axis=0)
+#
+#         if ordinal:
+#             preds, values = np.round(preds), np.round(values)
+#             incorrect = 0
+#             for i in range(preds.shape[0]):
+#                 if values[i] != preds[i]:
+#                     print("incorrect at", i)
+#                     incorrect += 1
+#             print("total incorrect", incorrect, incorrect / preds.shape[0])
+#
+#         tracker.log_loss(test_loss / test_iters, train=False)
+#         tracker.log_metric(internal=True, train=False)
+#
+#         print("val", test_loss / test_iters, 'r2', tracker.get_last_metric(train=False))
+#         print("avg ensmelb r2, mae", metrics.r2_score(values, preds), metrics.mean_absolute_error(values, preds))
+#
+#     return model, tracker
 
-        train_loss = 0
-        test_loss = 0
-        train_iters = 0
-        test_iters = 0
-        preds = []
-        values = []
-        predss = []
-        valuess = []
-        model.eval()
 
-        for i in range(25 if enseml else 1):
-            for i, (drugfeats, value) in enumerate(train_loader):
-                drugfeats, value = drugfeats.to(device), value.to(device)
-                pred, attn = model(drugfeats)
-
-                mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
-                test_loss += mse_loss.item()
-                test_iters += 1
-                tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
-                valuess.append(value.cpu().detach().numpy().flatten())
-                predss.append(pred.detach().cpu().numpy().flatten())
-
-            preds.append(np.concatenate(predss, axis=0))
-            values.append(np.concatenate(valuess, axis=0))
-        preds = np.stack(preds)
-        values = np.stack(values)
-        print(preds.shape, values.shape)
-        preds = np.mean(preds, axis=0)
-        values = np.mean(values, axis=0)
-
-        if ordinal:
-            preds, values = np.round(preds), np.round(values)
-            incorrect = 0
-            for i in range(preds.shape[0]):
-                if values[i] != preds[i]:
-                    print("incorrect at", i)
-                    incorrect += 1
-            print("total incorrect", incorrect, incorrect / preds.shape[0])
-
-        tracker.log_loss(test_loss / test_iters, train=False)
-        tracker.log_metric(internal=True, train=False)
-
-        print("val", test_loss / test_iters, 'r2', tracker.get_last_metric(train=False))
-        print("avg ensmelb r2, mae", metrics.r2_score(values, preds), metrics.mean_absolute_error(values, preds))
-
-    return model, tracker
-
-
-def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks=1, classifacation=False, mae=False,
-            pb=True, out=None, cyclic=False, verbose=True, use_amp=False):
+def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, classifacation=False, mae=False,
+            pb=True, out=None, cyclic=False, verbose=True, ):
     device = next(model.parameters()).device
     if classifacation:
         tracker = trackers.ComplexPytorchHistory() if tasks > 1 else trackers.PytorchHistory(
@@ -203,12 +201,10 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
                 mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
             else:
                 mse_loss = torch.nn.functional.mse_loss(pred, value).mean()
-            if use_amp:
-                with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            else:
-                mse_loss.backward()
-            torch.nn.utils.clip_grad_value_(model.parameters(), 10.0)
+            with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
+
+            torch.nn.utils.clip_grad_value_(model.parameters(), 1.0)
             optimizer.step()
             train_loss += mse_loss.item()
             train_iters += 1
@@ -247,30 +243,25 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
                   tracker.get_last_metric(train=True), tracker.get_last_metric(train=False))
 
         if out is not None:
-            if gpus == 1:
-                state = model.state_dict()
-                heads = model.nheads
-            else:
-                state = model.module.state_dict()
-                heads = model.module.nheads
+            state = model.state_dict()
+            heads = model.nheads
             torch.save({'model_state': state,
                         'opt_state': optimizer.state_dict(),
                         'history': tracker,
                         'nheads': heads,
-                        'ntasks': tasks}, out)
+                        'ntasks': tasks,
+                        'amp': amp.state_dict()}, out)
         if earlystopping.early_stop:
             break
     return model, tracker
 
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
-                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, cvs=None, rotate=False,
+                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, cvs=None, rotate=False,
                      classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None,
                      linear_layers=2, model_checkpoint=None):
     df = pd.read_csv(fname, header=None)
     smiles = list(df.iloc[:, 0])
-
-
 
     if precompute_frame is not None:
         features = np.load(precompute_frame).astype(np.float32)
@@ -285,7 +276,8 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
             test_smiles = [smiles[i] for i in test_idx]
         else:
             train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
-                                                                              test_size=0.2, random_state=random_seed, shuffle=True)
+                                                                              test_size=0.2, random_state=random_seed,
+                                                                              shuffle=True)
         train_features = features[train_idx]
         test_features = features[test_idx]
 
@@ -294,7 +286,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
             train_images = precomputed_images[train_idx]
             test_images = precomputed_images[test_idx]
             precomputed_images = True
-        assert(precomputed_images == True)
+        assert (precomputed_images == True)
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=None,
                                               values=tasks, rot=rotate, images=train_images)
@@ -319,43 +311,38 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
     else:
         assert (False)
 
-    if gpus > 1:
-        print("Let's use", torch.cuda.device_count(), "GPUs!")
-        model = torch.nn.DataParallel(model)
-
     if return_datasets:
         return train_dataset, test_dataset, model
     else:
         return train_loader, test_loader, model
 
-
-if __name__ == '__main__':
-    args = get_args()
-
-    np.random.seed(args.r)
-    torch.manual_seed(args.r)
-
-    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
-                                                        precompute_frame=args.precomputed_values,
-                                                        imputer_pickle=args.imputer_pickle, eval=args.eval,
-                                                        tasks=args.t, gpus=args.g, rotate=args.rotate,
-                                                        classifacation=args.classifacation, ensembl=args.ensemble_eval,
-                                                        dropout=args.dropout_rate)
-    print("Done.")
-
-    print("Starting trainer.")
-    if args.eval:
-        model.load_state_dict(torch.load(args.o)['model_state'])
-        model.to(device)
-        run_eval(model, test_loader, ordinal=True, enseml=args.ensemble_eval)
-        exit()
-    model.to(device)
-    optimizer = args.optimizer(model.parameters(), lr=args.lr)
-
-    print("Number of parameters:",
-          sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
-    model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb,
-                             gpus=args.g, classifacation=args.classifacation, tasks=args.t, mae=args.mae)
-    history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.p + " Loss")
-    history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.p + " " + history.metric_name)
-    print("Finished training, now")
+# if __name__ == '__main__':
+#     args = get_args()
+#
+#     np.random.seed(args.r)
+#     torch.manual_seed(args.r)
+#
+#     train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
+#                                                         precompute_frame=args.precomputed_values,
+#                                                         imputer_pickle=args.imputer_pickle, eval=args.eval,
+#                                                         tasks=args.t, rotate=args.rotate,
+#                                                         classifacation=args.classifacation, ensembl=args.ensemble_eval,
+#                                                         dropout=args.dropout_rate)
+#     print("Done.")
+#
+#     print("Starting trainer.")
+#     if args.eval:
+#         model.load_state_dict(torch.load(args.o)['model_state'])
+#         model.to(device)
+#         run_eval(model, test_loader, ordinal=True, enseml=args.ensemble_eval)
+#         exit()
+#     model.to(device)
+#     optimizer = args.optimizer(model.parameters(), lr=args.lr)
+#
+#     print("Number of parameters:",
+#           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
+#     model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb,
+#                               classifacation=args.classifacation, tasks=args.t, mae=args.mae)
+#     history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title=args.p + " Loss")
+#     history.plot_metric(save_file=args.metric_plot_prefix + "r2.png", title=args.p + " " + history.metric_name)
+#     print("Finished training, now")

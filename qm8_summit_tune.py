@@ -1,16 +1,18 @@
-import torch
-from hyperspace import hyperdrive
 import os
-from rdkit_free_train import trainer, load_data_models, get_optimizer
+
+import torch
 from apex import amp
+from hyperspace import hyperdrive
+
+from rdkit_free_train import trainer, load_data_models, get_optimizer
 
 config = {
     'i': '/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8.smi',
     'r': 42,
     'precomputed_values': "/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8_values.npy",
     'precomputed_images': "/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/qm8_images.npy",
-    'cv' : 1,
-    'resnet101' : '/gpfs/alpine/med106/proj-shared/aclyde/torch_cache/checkpoints/resnet101-5d3b4d8f.pth'
+    'cv': 1,
+    'resnet101': '/gpfs/alpine/med106/proj-shared/aclyde/torch_cache/checkpoints/resnet101-5d3b4d8f.pth'
 }
 
 
@@ -23,14 +25,16 @@ def train_qm8(ts):
                                                         precompute_frame=config['precomputed_values'],
                                                         precomputed_images=config['precomputed_images'],
                                                         imputer_pickle=None, eval=False,
-                                                        tasks=16, gpus=1, rotate=True,
-                                                        dropout=dropout_rate, intermediate_rep=intermediate, cvs=config['cv'], linear_layers=linear_layers, model_checkpoint=config['resnet101'])
+                                                        tasks=16, rotate=True,
+                                                        dropout=dropout_rate, intermediate_rep=intermediate,
+                                                        cvs=config['cv'], linear_layers=linear_layers,
+                                                        model_checkpoint=config['resnet101'])
     model.to(device)
     opt_level = 'O2'
     optimizer = get_optimizer('adamw')(model.parameters(), lr=lr)
     model, optimizer = amp.initialize(model, optimizer, opt_level=opt_level)
-    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=50, gpus=1, tasks=16, mae=True,
-                             pb=False, verbose=False, use_amp=True)
+    model, history = trainer(model, optimizer, train_loader, test_loader, epochs=50, tasks=16, mae=True,
+                             pb=False, verbose=False)
 
     return float(history.test_loss[-1])
 
@@ -43,18 +47,22 @@ if __name__ == '__main__':
               (64, 1024),  # itnermedioate
               (1, 6)]  # linear layers
     try:
-        os.makedirs('/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(config['cv']) + '/results/')
+        os.makedirs('/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(
+            config['cv']) + '/results/')
     except:
         pass
     try:
-        os.makedirs('/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(config['cv']) + '/checkpoints/')
+        os.makedirs('/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(
+            config['cv']) + '/checkpoints/')
     except:
         pass
     hyperdrive(objective=train_qm8,
                hyperparameters=params,
-               results_path='/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(config['cv']) + '/results/',
-               checkpoints_path='/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(config['cv']) + '/checkpoints/',
+               results_path='/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(
+                   config['cv']) + '/results/',
+               checkpoints_path='/gpfs/alpine/med106/proj-shared/aclyde/MolecularAttention/qm8/hyperopt/cv' + str(
+                   config['cv']) + '/checkpoints/',
                model="GP",
-               n_iterations=50,
+               n_iterations=25,
                verbose=True,
                random_state=0)

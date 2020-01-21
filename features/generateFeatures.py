@@ -7,12 +7,8 @@ from mordred import Calculator, descriptors
 from rdkit import Chem
 from rdkit.Chem import rdDepictor
 from rdkit.Chem.Draw import rdMolDraw2D
-from rdkit.Chem import RDConfig
 
 from features.utils import Invert
-
-
-
 
 # now you can import sascore!
 
@@ -20,11 +16,13 @@ smiles_vocab = None  # load charater to int function
 data_location = 'data/'
 
 MORDRED_SIZE = 1613
+
+
 def smile_to_mordred(smi, imputer_dict=None, userdkit=False):
     calc = Calculator(descriptors, ignore_3D=True)
     if userdkit:
         smi = Chem.MolFromSmiles(smi)
-        assert(smi is not None)
+        assert (smi is not None)
     res = calc(smi)
     res = np.array(list(res.values())).reshape(1, -1).astype(np.float32)
     res = np.nan_to_num(res, posinf=0, neginf=0, nan=0)
@@ -53,5 +51,3 @@ def smiles_to_image(mol, molSize=(128, 128), kekulize=True, mol_name='', mol_com
                                                    scale=1)))
     image.convert('RGB')
     return (Invert()(image))
-
-

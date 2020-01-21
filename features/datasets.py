@@ -111,7 +111,7 @@ class MolecularHolder:
 
 
 class ImageDatasetPreLoaded(Dataset):
-    def __init__(self, smiles, descs, imputer_pickle=None, property_func=logps, cache=True, values=1, rot=0, images=None):
+    def __init__(self, smiles, descs, imputer_pickle=None, property_func=logps, cache=True, values=1, rot=0, images=None, bw=False):
         self.smiles = smiles
         self.images = images
         self.descs = descs
@@ -125,7 +125,10 @@ class ImageDatasetPreLoaded(Dataset):
         self.cache = cache
         self.values = values
         self.data_cache = {}
-        self.transform = transforms.Compose([transforms.RandomRotation(degrees=(0, rot)), transforms.ToTensor()])
+        if bw:
+            self.transform = transforms.Compose([transforms.RandomRotation(degrees=(0, rot)), transforms.Grayscale(num_output_channels=3), transforms.ToTensor()])
+        else:
+            self.transform = transforms.Compose([transforms.RandomRotation(degrees=(0, rot)), transforms.ToTensor()])
 
 
     def __getitem__(self, item):
