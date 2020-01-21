@@ -233,8 +233,9 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
             else:
                 mse_loss = torch.nn.functional.mse_loss(pred, value)
             if use_mask:
-                mse_loss = mask * mse_loss
-            mse_loss = mse_loss.mean()
+                mse_loss = (mask * mse_loss)/ torch.sum(mask)
+            else:
+                mse_loss = mse_loss.mean()
             with amp.scale_loss(mse_loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
 
@@ -243,12 +244,13 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
             train_loss += mse_loss.item()
             train_iters += 1
             if use_mask:
-                pred = pred.detach().cpu() * mask.detach().cpu()
-                value = value.detach().cpu() * mask.detach().cpu()
+                pred = pred.detach().cpu()
+                value = value.detach().cpu()
+                tracker.track_metric(pred=pred.numpy(), value=value.numpy(), mask=mask.detach().cpu().numpy())
             else:
                 pred = pred.detach().cpu()
                 value = value.detach().cpu()
-            tracker.track_metric(pred=pred.numpy(), value=value.numpy())
+                tracker.track_metric(pred=pred.numpy(), value=value.numpy())
 
         tracker.log_loss(train_loss / train_iters, train=True)
         tracker.log_metric(internal=True, train=True)
