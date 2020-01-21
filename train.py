@@ -7,7 +7,7 @@ import torch
 from apex import amp
 from rdkit import Chem
 from sklearn import metrics
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingWarmRestarts
 from torch.utils.data import DataLoader
@@ -322,8 +322,13 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
     del df
 
     if cvs is not None:
-        kfold = KFold(random_state=random_seed, n_splits=5, shuffle=True)
-        train_idx, test_idx = list(kfold.split(list(range(len(smiles)))))[cvs]
+        if classifacation and tasks == 1 and precompute_frame is not None:
+            ts = np.load(precompute_frame)
+            kfold = StratifiedKFold(random_state=random_seed, n_splits=5, shuffle=True)
+            train_idx, test_idx = list(kfold.split(list(range(len(smiles))), ts.flatten()))[cvs]
+        else:
+            kfold = KFold(random_state=random_seed, n_splits=5, shuffle=True)
+            train_idx, test_idx = list(kfold.split(list(range(len(smiles)))))[cvs]
         train_smiles = [smiles[i] for i in train_idx]
         test_smiles = [smiles[i] for i in test_idx]
     else:
