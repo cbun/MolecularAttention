@@ -408,7 +408,7 @@ if __name__ == '__main__':
                                                         dropout=args.dropout_rate, cvs=args.cv,
                                                         intermediate_rep=args.width,
                                                         precomputed_images=args.precomputed_images, depth=args.depth,
-                                                        bw=args.bw)
+                                                        bw=args.bw, mask=args.mask)
     print("Done.")
 
     print("Starting trainer.")
