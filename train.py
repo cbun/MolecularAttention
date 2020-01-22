@@ -177,6 +177,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
                 if values[i] != preds[i]:
                     print("incorrect at", i)
                     incorrect += 1
+            print("total total", preds.shape[0])
             print("total incorrect", incorrect, incorrect / preds.shape[0])
 
         tracker.log_loss(test_loss / test_iters, train=False)
