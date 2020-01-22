@@ -409,7 +409,7 @@ if __name__ == '__main__':
 
     train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
                                                         precompute_frame=args.precomputed_values,
-                                                        imputer_pickle=args.imputer_pickle, eval=args.eval,
+                                                        imputer_pickle=args.imputer_pickle, eval=args.eval_train or args.eval_test,
                                                         tasks=args.t, rotate=args.rotate,
                                                         classifacation=args.classifacation, ensembl=args.ensemble_eval,
                                                         dropout=args.dropout_rate, cvs=args.cv,
