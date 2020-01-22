@@ -418,7 +418,12 @@ if __name__ == '__main__':
     print("Done.")
 
     print("Starting trainer.")
-    if args.eval:
+    if args.eval_train:
+        model.load_state_dict(torch.load(args.o)['model_state'])
+        model.to(device)
+        run_eval(model, train_loader, ordinal=True, enseml=args.ensemble_eval)
+        exit()
+    elif args.eval_test:
         model.load_state_dict(torch.load(args.o)['model_state'])
         model.to(device)
         run_eval(model, test_loader, ordinal=True, enseml=args.ensemble_eval)
