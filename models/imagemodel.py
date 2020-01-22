@@ -3,17 +3,18 @@ import torchvision.models as models
 import torch
 class ImageModel(nn.Module):
 
-    def __init__(self, intermediate_rep=256,  nheads=1, outs=1, dr=0, classifacation=False, linear_layers=2, model_path=None):
+    def __init__(self, intermediate_rep=256,  nheads=1, outs=1, dr=0, classifacation=False, linear_layers=2, model_path=None, pretrain=True):
         super(ImageModel, self).__init__()
         self.return_attn = True
         self.outs = outs
         self.nheads = nheads
 
         if model_path is None:
-            resnet18 = models.resnet101(pretrained=True)
+            resnet18 = models.resnet101(pretrained=pretrain)
         else:
             resnet18 = models.resnet101(pretrained=False)
-            resnet18.load_state_dict(torch.load(model_path))
+            if pretrain:
+                resnet18.load_state_dict(torch.load(model_path))
 
         resnet18 = nn.Sequential(*list(resnet18.children())[:-1])
         self.resnet181 = nn.Sequential(*list(resnet18.children())[:5])

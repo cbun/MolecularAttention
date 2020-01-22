@@ -112,7 +112,7 @@ def get_args():
     parser.add_argument('--amp', type=str, default='O0', choices=['O0', 'O1', 'O2', 'O3'])
     parser.add_argument('--bw', action='store_true')
     parser.add_argument('--mask', type=str, default=None)
-
+    parser.add_argument('--no_pretrain', action='store_true')
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
         args.metric_plot_prefix = "".join(args.o.split(".")[:-1]) + "_"
@@ -320,7 +320,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
                      precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, cvs=None, rotate=False,
                      classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None,
-                     depth=None, bw=True, mask=None):
+                     depth=None, bw=True, mask=None, pretrain=True):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -391,10 +391,10 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         # test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
 
     if intermediate_rep is None:
-        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout, depth=depth)
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout, linear_layers=depth, pretrain=pretrain)
     else:
         model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
-                                      intermediate_rep=intermediate_rep, linear_layers=depth)
+                                      intermediate_rep=intermediate_rep, linear_layers=depth, pretrain=pretrain)
 
     if return_datasets:
         return train_dataset, test_dataset, model
@@ -416,7 +416,7 @@ if __name__ == '__main__':
                                                         dropout=args.dropout_rate, cvs=args.cv,
                                                         intermediate_rep=args.width,
                                                         precomputed_images=args.precomputed_images, depth=args.depth,
-                                                        bw=args.bw, mask=args.mask)
+                                                        bw=args.bw, mask=args.mask, pretrain=(not args.no_pretrain))
     print("Done.")
 
     print("Starting trainer.")
