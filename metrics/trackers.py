@@ -118,6 +118,8 @@ class PytorchHistory:
         if internal:
             self.true_tracker = np.concatenate(self.true_tracker).flatten()
             self.pred_tracker = np.concatenate(self.pred_tracker).flatten()
+            self.true_tracker = np.nan_to_num(self.true_tracker, nan=0, posinf=0, neginf=0)
+            self.pred_tracker = np.nan_to_num(self.pred_tracker, nan=0, posinf=0, neginf=0)
             r2 = self.metric(self.true_tracker, self.pred_tracker)
             self.true_tracker, self.pred_tracker = [], []
         if train:

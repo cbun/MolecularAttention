@@ -125,7 +125,7 @@ def get_args():
     return args
 
 
-def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1, mae=False):
+def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1, mae=False, pb=True):
     with torch.no_grad():
         model.eval()
         if classifacation:
@@ -146,6 +146,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
         model.eval()
 
         for i in range(25 if enseml else 1):
+
             for i, (drugfeats, value) in enumerate(train_loader):
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
