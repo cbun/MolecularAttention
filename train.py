@@ -176,7 +176,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
             incorrect = 0
             for i in range(preds.shape[0]):
                 if values[i] != preds[i]:
-                    print("incorrect at", i)
+                    # print("incorrect at", i)
                     incorrect += 1
             print("total total", preds.shape[0])
             print("total incorrect", incorrect, incorrect / preds.shape[0])

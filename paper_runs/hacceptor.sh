@@ -1,0 +1,11 @@
+python train.py --rotate -pb --amp O2 --nheads 1 --dropout_rate 0.1 -p hacceptor --depth 2 --width 128 -r 0 \
+ --epochs 15 -b 512 --lr 1e-4 -i moses/train.smi --precomputed_values moses/train_hacceptor.npy \
+  --precomputed_images moses/train_images.npy -o saved_models/moses_hacceptor.pt
+
+python train.py --rotate -pb --amp O2 --nheads 1 --dropout_rate 0.1 -p hacceptor --depth 2 --width 128 -r 0 \
+ --epochs 15 -b 512 --lr 1e-4 -i moses/test.smi --precomputed_values moses/test_hacceptor.npy \
+  --precomputed_images moses/tets_images.npy -o saved_models/moses_hacceptor.pt --eval_train
+
+python train.py --rotate -pb --amp O2 --nheads 1 --dropout_rate 0.1 -p hacceptor --depth 2 --width 128 -r 0 \
+  --epochs 15 -b 512 --lr 1e-4 -i moses/test_scaffolds.smi --precomputed_values moses/test_scaffold_hacceptor.npy \
+  --precomputed_images moses/test_scaffold_images.npy -o saved_models/moses_hacceptor.pt --eval_train
