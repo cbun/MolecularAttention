@@ -366,6 +366,13 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_features = features[train_idx]
         test_features = features[test_idx]
 
+        if rotate:
+            rotate = 359
+        else:
+            rotate = 0
+        rotate = 359 if (ensembl and eval) else rotate
+
+
         train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
                                               property_func=get_properety_function(pname),
                                               values=tasks, rot=rotate, bw=bw,
@@ -376,7 +383,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
                                              property_func=get_properety_function(pname),
-                                             values=tasks, rot=359 if ensembl else 0,
+                                             values=tasks, rot=rotate,
                                              images=None if not precomputed_images else test_images, bw=bw,
                                              mask=None if not mask else test_mask)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
