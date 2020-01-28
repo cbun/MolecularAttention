@@ -134,6 +134,7 @@ class ImageDatasetPreLoaded(Dataset):
             self.transform = transforms.Compose([transforms.RandomRotation(degrees=(0, rot)), transforms.Grayscale(num_output_channels=3), transforms.ToTensor()])
         else:
             self.transform = transforms.Compose([transforms.RandomRotation(degrees=(0, rot)), transforms.ToTensor()])
+        print("Using rotation ", rot)
 
 
     def __getitem__(self, item):

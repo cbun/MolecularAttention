@@ -393,7 +393,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
                                              images=None if not precomputed_images else test_images, bw=bw,
                                              mask=None if not mask else test_mask)
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
-                                 shuffle=(not eval))
+                                 shuffle=False)
     else:
         assert (False)
         # train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
