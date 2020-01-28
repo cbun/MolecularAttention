@@ -147,10 +147,18 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
         valuess = []
         model.eval()
 
-        for i in range(25 if enseml else 1):
+        if pb and enseml:
+            first_range = tqdm(range(25), desc='ensembl runs')
+        else:
+            first_range = range(1)
+        for _ in first_range:
             predss = []
             valuess = []
-            for i, (drugfeats, value) in enumerate(train_loader):
+            if pb and not enseml:
+                second_range = tqdm(enumerate(train_loader))
+            else:
+                second_range = enumerate(train_loader)
+            for i, (drugfeats, value) in second_range:
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
 
