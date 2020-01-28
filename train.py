@@ -172,7 +172,13 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
         values = np.stack(values)
         print(preds.shape, values.shape)
         if output_preds is not None:
-            np.save(output_preds, np.stack(preds, values))
+            print(preds.shape)
+            print(values.shape)
+            out = np.stack([preds, values])
+            print(out.shape)
+            print("Outputting preds")
+            np.save(output_preds, out)
+            del out
 
         preds = np.mean(preds, axis=0)
         values = np.mean(values, axis=0)
