@@ -146,7 +146,8 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
         model.eval()
 
         for i in range(25 if enseml else 1):
-
+            predss = []
+            valuess = []
             for i, (drugfeats, value) in enumerate(train_loader):
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
