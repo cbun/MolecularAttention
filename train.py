@@ -113,6 +113,8 @@ def get_args():
     parser.add_argument('--bw', action='store_true')
     parser.add_argument('--mask', type=str, default=None)
     parser.add_argument('--no_pretrain', action='store_true')
+    parser.add_argument('--output_preds', default=None, type=str, required=False, help='output preds when running eval')
+
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
         args.metric_plot_prefix = "".join(args.o.split(".")[:-1]) + "_"
@@ -125,7 +127,7 @@ def get_args():
     return args
 
 
-def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1, mae=False, pb=True):
+def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1, mae=False, pb=True, output_preds=None):
     with torch.no_grad():
         model.eval()
         if classifacation:
@@ -169,6 +171,9 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
         preds = np.stack(preds)
         values = np.stack(values)
         print(preds.shape, values.shape)
+        if output_preds is not None:
+            np.save(output_preds, np.stack(preds, values))
+
         preds = np.mean(preds, axis=0)
         values = np.mean(values, axis=0)
 
@@ -432,12 +437,12 @@ if __name__ == '__main__':
     if args.eval_train:
         model.load_state_dict(torch.load(args.o)['model_state'])
         model.to(device)
-        run_eval(model, train_loader, ordinal=True, enseml=args.ensemble_eval)
+        run_eval(model, train_loader, ordinal=True, enseml=args.ensemble_eval, output_preds=args.output_preds)
         exit()
     elif args.eval_test:
         model.load_state_dict(torch.load(args.o)['model_state'])
         model.to(device)
-        run_eval(model, test_loader, ordinal=True, enseml=args.ensemble_eval)
+        run_eval(model, test_loader, ordinal=True, enseml=args.ensemble_eval, output_preds=args.output_preds)
         exit()
     model.to(device)
     optimizer = args.optimizer(model.parameters(), lr=args.lr)
