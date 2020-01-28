@@ -148,7 +148,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
         model.eval()
 
         if pb and enseml:
-            first_range = tqdm(range(25), desc='ensembl runs')
+            first_range = tqdm(range(50), desc='ensembl runs')
         else:
             first_range = range(1)
         for _ in first_range:
