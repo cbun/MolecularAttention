@@ -62,11 +62,11 @@ class ImageModel(nn.Module):
             attention = attention.repeat([1, int(256 / self.nheads), 1, 1])
             image = self.resnet182(image * attention)
             image = image.view(features.shape[0], -1)
-
-            if self.return_attn:
-                return self.prop_model(self.model(image)), attention
-            else:
-                return self.prop_model(self.model(image))
         else:
             image = self.resnet181(features).view(features.shape[0], -1)
+            attention = torch.zeros((features.shape[0], 1, 1,1))
+
+        if self.return_attn:
+            return self.prop_model(self.model(image)), attention
+        else:
             return self.prop_model(self.model(image))
