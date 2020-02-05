@@ -47,9 +47,19 @@ if __name__ == '__main__':
     my_cmap[:, -1] = np.linspace(0, 1, cmap.N)
     my_cmap = ListedColormap(my_cmap)
 
-    dset, _, model = load_data_models("moses/test_scaffolds.smi", 32, 1, 1, 'weight', nheads=8, dropout=0.1, return_datasets=True, precompute_frame="moses/test_scaffolds_weight.npy", intermediate_rep=128)
+    file = 'saved_models/moses_hacceptor.pt'
+    args = torch.load(file, map_location=torch.device('cpu'))['args']
 
-    model.load_state_dict(torch.load('saved_models/moses_weight.pt', map_location='cpu')['model_state'])
+    # dset, _, model = load_data_models("moses/test_scaffolds.smi", 32, 1, 1, 'weight', nheads=8, dropout=0.1, return_datasets=True, precompute_frame="moses/test_scaffolds_weight.npy", intermediate_rep=128)
+    dset, _, model = load_data_models("moses/test_scaffolds.smi", args.r, args.w, args.b, args.p, nheads=args.nheads,
+                                                        precompute_frame="moses/test_scaffold_hacceptor.npy",
+                                                        imputer_pickle=args.imputer_pickle,
+                                                        tasks=args.t, rotate=0,
+                                                        classifacation=args.classifacation, ensembl=args.ensemble_eval,
+                                                        dropout=args.dropout_rate,
+                                                        intermediate_rep=args.width, depth=args.depth,
+                                                        bw=args.bw, return_datasets=True)
+    model.load_state_dict(torch.load(file, map_location='cpu')['model_state'])
     model.eval()
 
 
