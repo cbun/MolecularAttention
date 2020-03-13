@@ -261,7 +261,7 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
     print("Finished loading csv file")
     descr_arr = df.iloc[:,4:].to_numpy()
     dock_arr = df.dock_bin.to_numpy() if classifacation else df.dock.to_numpy()
-    
+    dock_arr = np.expand_dims(dock_arr,axis=1)
     train_descr, test_descr, train_dock, test_dock = train_test_split(descr_arr, dock_arr, test_size=0.2, random_state=random_seed)
     
 
