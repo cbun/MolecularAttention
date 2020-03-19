@@ -254,10 +254,9 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
     return model, tracker
 
 def load_csv(fname):
-    df = pd.read_csv(fname, skiprows=1)
+    df = pd.read_csv(fname,index_col=False)
     print("Finished loading csv file")
-    end = df.shape[0]
-    print(end)
+    print(df.to_numpy())
     scaler = StandardScaler()
     descr_arr = df.iloc[:,1:].to_numpy()
     descr_arr = scaler.fit_transform(descr_arr)
