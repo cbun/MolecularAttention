@@ -17,7 +17,7 @@ from features.generateFeatures import MORDRED_SIZE
 from metrics import trackers
 from models import imagemodel
 from models import descrmodel
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 if torch.cuda.is_available():
     import torch.backends.cudnn
 
@@ -253,19 +253,23 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
             break
     return model, tracker
 
+def load_csv(fname):
+    df = pd.read_csv(fname, skiprows=1)
+    print("Finished loading csv file")
+    end = df.shape[0]
+    print(end)
+    scaler = StandardScaler()
+    descr_arr = df.iloc[:,1:].to_numpy()
+    descr_arr = scaler.fit_transform(descr_arr)
+    dock_arr = df.iloc[:,0].to_numpy()
+    dock_arr = np.expand_dims(dock_arr,axis=1)
+    return descr_arr, dock_arr
 
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, 
                       eval=False, tasks=1, gpus=1, 
                      classifacation=False, ensembl=False, dropout=0):
-    df = pd.read_csv(fname)
-    df = df.fillna(0)
-    print("Finished loading csv file")
-    scaler = MinMaxScaler()
-    descr_arr = df.iloc[:,4:].to_numpy()
-    descr_arr = scaler.fit_transform(descr_arr)
-    dock_arr = df.dock_bin.to_numpy() if classifacation else df.dock.to_numpy()
-    dock_arr = np.expand_dims(dock_arr,axis=1)
-  
+
+    descr_arr, dock_arr = load_csv(fname)
     train_descr, test_descr, train_dock, test_dock = train_test_split(descr_arr, dock_arr, test_size=0.2, random_state=random_seed)
     
 
@@ -314,6 +318,6 @@ if __name__ == '__main__':
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
     model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb,
                              gpus=args.g, classifacation=args.classifacation, tasks=args.t, mae=args.mae)
-    history.plot_loss(save_file= "loss.png", title=args.p + " Loss")
-    history.plot_metric(save_file= "r2.png", title=args.p + " " + history.metric_name)
+    history.plot_loss(save_file= "loss.png", title= "Loss")
+    history.plot_metric(save_file= "r2.png", title= history.metric_name)
     print("Finished training, now")
