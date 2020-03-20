@@ -76,7 +76,6 @@ def get_args():
                         help='separated dock scores for trainings')
     parser.add_argument('--precomputed_images', type=str, required=False, default=None,
                         help='precomputed images for trainings')
-    parser.add_argument('-p', choices=list(funcs.keys()), help='select property for model')
     parser.add_argument('-w', type=int, default=8, help='number of workers for data loaders to use.')
     parser.add_argument('-b', type=int, default=64, help='batch size to use')
     parser.add_argument('-o', type=str, default='saved_models/model.pt', help='name of file to save model to')
@@ -96,14 +95,13 @@ def get_args():
     parser.add_argument('--classifacation', action='store_true')
     parser.add_argument('--ensemble_eval', action='store_true')
     parser.add_argument('--mae', action='store_true')
-    parser.add_argument('--cv', default=None, type=int, help='use CV for crossvalidation (1-5)')
-    parser.add_argument('--width', default=256, type=int, help='rep size')
+
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
         args.metric_plot_prefix = "".join(args.o.split(".")[:-1]) + "_"
     args.optimizer = get_optimizer(args.optimizer)
 
-    def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1):
+def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1):
     with torch.no_grad():
         model.eval()
         if classifacation:
@@ -247,40 +245,78 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
         if earlystopping.early_stop:
             break
     return model, tracker
-def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
-                     precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, gpus=1, cvs=None, rotate=False,
-                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_values=None, precomputed_images=None):
+def load_data_models(fname, random_seed, workers, batch_size, precomputed_values, precomputed_images,  pname='logp', nheads=1,
+                      eval=False, tasks=1, gpus=1, rotate=False,
+                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None):
     df = pd.read_csv(fname, header=None)
     smiles = []
 
-    if precomputed_images is not None:
-        with open(precomputed_images, 'rb') as f:
-            precomputed_images = pickle.load(precomputed_images)
+    with open(precomputed_images, 'rb') as f:
+        precomputed_images = pickle.load(precomputed_images)
 
-    if cvs is not None:
-        kfold = KFold(random_state=random_seed, n_splits=5, shuffle=True)
-        train_idx, test_idx = list(kfold.split(list(range(len(smiles)))))[cvs]
-        train_smiles = [smiles[i] for i in train_idx]
-        test_smiles = [smiles[i] for i in test_idx]
+    train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
+                                                                      test_size=0.2, random_state=random_seed)
+
+    features = np.load(precomputed_values).astype(np.float32)
+    features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)        
+    assert (features.shape[0] == len(smiles))
+    train_features = features[train_idx]
+    test_features = features[test_idx]
+
+    train_dataset = ImageDatasetPreLoaded(train_smiles, train_features,
+                                          property_func=get_properety_function(pname),
+                                          values=tasks, rot=rotate, images=[precomputed_images[i] for i in train_idx])
+    train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+                              shuffle=(not eval))
+
+    test_dataset = ImageDatasetPreLoaded(test_smiles, test_features,
+                                         property_func=get_properety_function(pname),
+                                         values=tasks, rot=359 if ensembl else 0, images=[precomputed_images[i] for i in test_idx])
+    test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+                             shuffle=(not eval))
+    
+    
+    if intermediate_rep is None:
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout)
     else:
-        train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
-                                                                          test_size=0.2, random_state=random_seed)
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
+                                      intermediate_rep=intermediate_rep)
 
-    if precompute_frame is not None:
-        features = np.load(precompute_frame).astype(np.float32)
-        features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
-        assert (features.shape[0] == len(smiles))
-        train_features = features[train_idx]
-        test_features = features[test_idx]
+    if gpus > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        model = torch.nn.DataParallel(model)
+        
+    train_loader, test_loader, model
 
-        train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
-                                              property_func=get_properety_function(pname),
-                                              values=tasks, rot=rotate, images=None if precomputed_images is None else [precomputed_images[i] for i in train_idx])
-        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
-                                  shuffle=(not eval))
 
-        test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
-                                             property_func=get_properety_function(pname),
-                                             values=tasks, rot=359 if ensembl else 0, images=None if precomputed_images is None else [precomputed_images[i] for i in test_idx])
-        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
-                                 shuffle=(not eval))
+if __name__ == '__main__':
+    args = get_args()
+
+    np.random.seed(args.r)
+    torch.manual_seed(args.r)
+
+    train_loader, test_loader, model = load_data_models(args.i, args.r, args.w, args.b, args.precomputed_values,args.precomputed_images,
+                                                        pname='logp', nheads=args.nheads,
+                                                        precompute_frame=args.precomputed_values,
+                                                        eval=args.eval,
+                                                        tasks=args.t, gpus=args.g, rotate=args.rotate,
+                                                        classifacation=args.classifacation, ensembl=args.ensemble_eval,
+                                                        dropout=args.dropout_rate, intermediate_rep=args.width)
+    print("Done.")
+
+    print("Starting trainer.")
+    if args.eval:
+        model.load_state_dict(torch.load(args.o)['model_state'])
+        model.to(device)
+        run_eval(model, test_loader, ordinal=True, enseml=args.ensemble_eval)
+        exit()
+    model.to(device)
+    optimizer = args.optimizer(model.parameters(), lr=args.lr)
+
+    print("Number of parameters:",
+          sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
+    model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb,
+                             gpus=args.g, classifacation=args.classifacation, tasks=args.t, mae=args.mae)
+    history.plot_loss(save_file=args.metric_plot_prefix + "loss.png", title="Loss")
+    history.plot_metric(save_file=args.metric_plot_prefix + "metric.png", title=history.metric_name)
+    print("Finished training, now")
