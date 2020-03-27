@@ -136,6 +136,7 @@ class PytorchHistory:
         plt.title(title)
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
+        plt.legend()
 
         if save_file is None:
             plt.show()
@@ -151,7 +152,7 @@ class PytorchHistory:
         plt.title(title)
         plt.xlabel("Epoch")
         plt.ylabel(self.metric_name)
-
+        plt.legend()
         if save_file is None:
             plt.show()
         else:

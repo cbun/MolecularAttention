@@ -3,7 +3,7 @@ import torchvision.models as models
 import torch
 class ImageModel(nn.Module):
 
-    def __init__(self, intermediate_rep=256,  nheads=1, outs=1, dr=0, classifacation=False, linear_layers=1, model_path=None, pretrain=True):
+    def __init__(self, intermediate_rep=256,  nheads=1, outs=1, dr=0, classifacation=False, linear_layers=1, model_path=None, pretrain=True, forward=False, freeze=False):
         super(ImageModel, self).__init__()
         self.return_attn = True
         self.outs = outs
@@ -28,6 +28,9 @@ class ImageModel(nn.Module):
         else:
             self.resnet181 = nn.Sequential(*list(resnet18.children()))
 
+        if freeze:
+            for param in self.resnet181.parameters():
+                param.requires_grad = False
         self.model = nn.Sequential(
             nn.Linear(2048, intermediate_rep),
             nn.BatchNorm1d(intermediate_rep),
@@ -43,14 +46,26 @@ class ImageModel(nn.Module):
 
         self.linear = nn.Sequential(*self.linears)
 
-        self.prop_model = nn.Sequential(
+        if forward:
+            self.prop_model = nn.Sequential(
             self.linear,
 
-            nn.Linear(intermediate_rep, intermediate_rep),
+            nn.Linear(intermediate_rep, 64),
             nn.ReLU(),
             nn.Dropout(dr),
+            nn.Linear(64, 32),                                                                                                        
+            nn.ReLU(),                                                                                                                
+            nn.Dropout(dr),                                                                                                           
+            nn.Linear(32, self.outs)
+        )
+        else:
+          self.prop_model = nn.Sequential(
+             self.linear,
 
-            nn.Linear(intermediate_rep, self.outs)
+             nn.Linear(intermediate_rep, intermediate_rep),
+             nn.ReLU(),
+             nn.Dropout(dr),
+             nn.Linear(intermediate_rep, self.outs)
         )
 
 

@@ -1,9 +1,6 @@
 import argparse
-import multiprocessing
 import pickle
 import os
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
 import numpy as np
 import pandas as pd
 import torch
@@ -14,12 +11,13 @@ from sklearn.model_selection import train_test_split
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingWarmRestarts
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from features.datasets import ImageDataset, funcs, get_properety_function, ImageDatasetPreLoaded
 from features.generateFeatures import MORDRED_SIZE
 from metrics import trackers
 from models import imagemodel
 from sklearn.utils import class_weight
+from scipy import stats
 print(torch.cuda.current_device())
 if torch.cuda.is_available():
     import torch.backends.cudnn
@@ -105,20 +103,24 @@ def get_args():
     parser.add_argument('--width', default=256, type=int, help='rep size')
     parser.add_argument('--depth', default=2, type=int, help='num linear layers')
     parser.add_argument('--no_pretrain', action='store_true')
+    parser.add_argument('--forward', action='store_true')
+    parser.add_argument('--freeze', action='store_true')
+
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
         args.metric_plot_prefix = "".join(args.o.split(".")[:-1]) + "_"
     args.optimizer = get_optimizer(args.optimizer)
+    print(args)
     return args
 
 def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1):
     with torch.no_grad():
         model.eval()
         if classifacation:
-            tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory(
+            tracker =  trackers.PytorchHistory(
                 metric=metrics.roc_auc_score, metric_name='roc-auc')
         else:
-            tracker = trackers.ComplexPytorchHistory() if args.p == 'all' else trackers.PytorchHistory()
+            tracker =  trackers.PytorchHistory()
 
         train_loss = 0
         test_loss = 0
@@ -134,7 +136,6 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
             for i, (drugfeats, value) in enumerate(train_loader):
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
-
                 mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
                 test_loss += mse_loss.item()
                 test_iters += 1
@@ -164,7 +165,9 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
 
         print("val", test_loss / test_iters, 'r2', tracker.get_last_metric(train=False))
         print("avg ensmelb r2, mae", metrics.r2_score(values, preds), metrics.mean_absolute_error(values, preds))
-
+        print(preds)
+        print(values)
+        print("Pearson corr", stats.pearsonr(preds,values))
     return model, tracker
 
 
@@ -201,8 +204,10 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
             drugfeats, value = drugfeats.to(device), value.to(device)
             pred, attn = model(drugfeats)
             if classifacation:
-                #cw = class_weight.compute_class_weight(class_weight='balanced', np.array([0,1]),                            
-                mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value).mean()
+                # compute and pass class weighting 
+                cw = class_weight.compute_class_weight('balanced', np.array([0,1]),value)
+                cw = torch.FloatTensor(cw).cuda()
+                mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(pred, value, weight=cw).mean()
             elif mae:
                 mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
             else:
@@ -232,7 +237,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, gpus=1, tasks
                 test_loss += mse_loss.item()
                 test_iters += 1
                 tracker.track_metric(pred.detach().cpu().numpy(), value.detach().cpu().numpy())
-        tracker.log_loss(train_loss / train_iters, train=False)
+        tracker.log_loss(test_loss / train_iters, train=False)
         tracker.log_metric(internal=True, train=False)
 
         lr_red.step(test_loss / test_iters)
@@ -266,54 +271,53 @@ def validate_smiles(smiles):
 
 def load_data_models(fname, random_seed, workers, batch_size, precomputed_values, precomputed_images,  pname='logp', nheads=1,
                       eval=False, tasks=1, gpus=1, rotate=False,
-                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, depth=2, pretrain=True):
+                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, depth=2, pretrain=True, forward=False, freeze=False):
     df = pd.read_csv(fname, header=0)
-    features = np.load(precomputed_values).astype(np.float32)
-    smiles = []
-    discard = []
-    with multiprocessing.Pool() as p:
-        gg = p.imap(validate_smiles,list(df.iloc[:,0]))
-        i=0
-        for g in tqdm(gg, desc='validate smiles'):
-            if g is not None :
-                smiles.append(g)
-            else:
-                discard.append(i)
-            i+=1    
-    del df
-    print("Discarding values at inds", discard)
-    features = np.delete(features,discard).reshape(-1,1)
+    smiles=list(df.iloc[:,0].values)
+    features = np.load(precomputed_values).astype(np.float32).reshape(-1,1)
     precomputed_images = np.load(precomputed_images)
     print(precomputed_images[0].shape)
+	
+    assert(features.shape[0] == len(smiles))
+    assert(precomputed_images.shape[0] == len(smiles))
 
+    
+    features=np.absolute(features)
     train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
                                                                       test_size=0.2, random_state=random_seed)
 
-    scaler = MinMaxScaler()
-    features = scaler.fit_transform(features)
-    features=np.absolute(features)
-    assert (features.shape[0] == len(smiles))
-    train_features = features[train_idx]
-    test_features = features[test_idx]
-
-    train_dataset = ImageDatasetPreLoaded(train_smiles, train_features,
+    if eval:
+        print("Assume data is already scaled correctly")
+        test_dataset = ImageDatasetPreLoaded(smiles, features,
+                                         property_func=get_properety_function(pname),
+                                         values=tasks, rot=0, images=precomputed_images)
+        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+                             shuffle=(not eval))
+        train_loader=None
+    else:
+        train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
+                                                                      test_size=0.2, random_state=random_seed, shuffle=True)
+        scaler = MinMaxScaler()
+        features = scaler.fit_transform(features)
+        
+        train_features = features[train_idx]
+        test_features = features[test_idx]
+        train_dataset = ImageDatasetPreLoaded(train_smiles, train_features,
                                           property_func=get_properety_function(pname),
                                           values=tasks, rot=359, images=[precomputed_images[i] for i in train_idx])
-    train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
-                              shuffle=(not eval))
-
-    test_dataset = ImageDatasetPreLoaded(test_smiles, test_features,
-                                         property_func=get_properety_function(pname),
+        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+                                  shuffle=True)
+        test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, property_func=get_properety_function(pname),
                                          values=tasks, rot=359, images=[precomputed_images[i] for i in test_idx])
-    test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
-                             shuffle=(not eval))
+        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+                                  shuffle=True)
     
     
     if intermediate_rep is None:
-        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout, linear_layers=depth, pretrain=pretrain)
+        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout, linear_layers=depth, pretrain=pretrain, forward=forward, freeze=freeze)
     else:
         model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
-                                      intermediate_rep=intermediate_rep, linear_layers=depth, pretrain=pretrain)
+                                      intermediate_rep=intermediate_rep, linear_layers=depth, pretrain=pretrain, forward=forward, freeze=freeze)
 
     if gpus > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
@@ -334,17 +338,20 @@ if __name__ == '__main__':
                                                         eval=args.eval,
                                                         tasks=args.t, gpus=args.g, rotate=args.rotate,
                                                         classifacation=args.classifacation, ensembl=args.ensemble_eval,
-                                                        dropout=args.dropout_rate, intermediate_rep=args.width, depth=args.depth, pretrain=(not args.no_pretrain))
+                                                        dropout=args.dropout_rate, intermediate_rep=args.width, depth=args.depth, pretrain=(not args.no_pretrain), forward = args.forward, freeze=args.freeze)
     print("Done.")
 
     print("Starting trainer.")
     if args.eval:
         model.load_state_dict(torch.load(args.o)['model_state'])
         model.to(device)
-        run_eval(model, test_loader, ordinal=True, enseml=args.ensemble_eval)
+        run_eval(model, test_loader, ordinal=False, enseml=args.ensemble_eval)
         exit()
     model.to(device)
-    optimizer = args.optimizer(model.parameters(), lr=args.lr)
+    if args.freeze:
+        optimizer = args.optimizer(model.prop_model.parameters(), lr=args.lr)
+    else:     
+        optimizer = args.optimizer(model.parameters(), lr=args.lr)
 
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
