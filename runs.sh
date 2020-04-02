@@ -1,11 +1,14 @@
-#CUDA_VISIBLE_DEVICES=1 python train_dock_images.py -pb --rotate -t 1 -b 256 --epochs 50  -w 1 -r 0  --nheads 0 --dropout_rate 0.15  --lr 8e-5 -o saved_models/model_adrp_0327_freeze.pt -i t1/ml.adrp_p1_smiles.csv --precomputed_images t1/ml.adrp_p1_images.npy  --precomputed_values t1/ml.adrp_p1.dock.npy --metric_plot_prefix adrp_0327_freeze --mae --width 128 --depth 1 --forward --freeze > output_0327_freeze.txt
+#CUDA_VISIBLE_DEVICES=1 python train_dock_images.py -pb --rotate -t 1 -b 256 --epochs 50  -w 1 -r 0  --nheads 0 --dropout_rate 0.15  --lr 1e-3 -o saved_models/model_adrp_0327_freeze.pt -i t1/ml.adrp_p1_smiles.csv --precomputed_images t1/ml.adrp_p1_images.npy  --precomputed_values t1/ml.adrp_p1.dock.npy --metric_plot_prefix adrp_0327_freeze --mae --width 128 --depth 1 --forward --freeze > output_0327_freeze.txt
+
+CUDA_VISIBLE_DEVICES=0 python train_dock_images.py -pb --rotate -t 1 -b 256 --epochs 50  -w 0 -r 0  --nheads 0 --dropout_rate 0.15  --lr 8e-5 -o saved_models/model_adrp_0327_dep2.pt -i t1/ml.adrp_p1_smiles.csv --precomputed_images t1/ml.adrp_p1_images.npy  --precomputed_values t1/ml.adrp_p1.dock.npy --metric_plot_prefix adrp_0401_dep2_scale --mae --width 128 --depth 2 --eval
+
+
+#CUDA_VISIBLE_DEVICES=1 python train_dock_images.py -pb --rotate -t 1 -b 256 --epochs 100  -w 0 -r 0  --nheads 0 --dropout_rate 0.15  --lr 8e-5 -o saved_models/model_adrp_0330_dep2_noscale.pt -i t1/ml.adrp_p1_smiles.csv --precomputed_images t1/ml.adrp_p1_images.npy  --precomputed_values t1/ml.adrp_p1.dock.npy --metric_plot_prefix adrp_0330_dep2_noscale --mae --width 128 --depth 2 
 
 
 
-#CUDA_VISIBLE_DEVICES=0 python train_dock_images.py -pb --rotate -t 1 -b 256 --epochs 50  -w 1 -r 0  --nheads 0 --dropout_rate 0.15  --lr 8e-5 -o saved_models/model_adrp_0327_dep2.pt -i t1/ml.adrp_p1_smiles.csv --precomputed_images t1/ml.adrp_p1_images.npy  --precomputed_values t1/ml.adrp_p1.dock.npy --metric_plot_prefix adrp_0327_dep2 --mae --width 128 --depth 2 > output_0327_dep2.txt
 
-
-CUDA_VISIBLE_DEVICES=1 python train_dock_images.py -pb --rotate -t 1 -b 256 --epochs 50  -w 1 -r 0  --nheads 0 --dropout_rate 0.15  --lr 8e-5 -o saved_models/model_adrp_0327_fforward.pt -i t1/ml.adrp_p1_smiles.csv --precomputed_images t1/ml.adrp_p1_images.npy  --precomputed_values t1/ml.adrp_p1.dock.npy --metric_plot_prefix adrp_0327_fforward --mae --width 128 --depth 1 --forward > output_0327_fforward.txt
+#CUDA_VISIBLE_DEVICES=1 python train_dock_images.py -pb --rotate -t 1 -b 256 --epochs 50  -w 0 -r 0  --nheads 0 --dropout_rate 0.15  --lr 8e-5 -o saved_models/model_adrp_0327_fforward.pt -i t1/ml.adrp_p1_smiles.csv --precomputed_images t1/ml.adrp_p1_images.npy  --precomputed_values t1/ml.adrp_p1.dock.npy --metric_plot_prefix adrp_0327_fforward --mae --width 128 --depth 1 --forward > output_0327_fforward.txt
 
 #CUDA_VISIBLE_DEVICES=1 python train_dock_images.py -pb --rotate -t 1 -b 256 --epochs 50  -w 1 -r 0  --nheads 0 --dropout_rate 0.15  --lr 8e-5 -o saved_models/model_adrp.pt -i t1/smiles_valid --precomputed_images t1/image_dock_v2.npy  --precomputed_values t1/adrp_p1_valid.npy --metric_plot_prefix adrp_pocket_1 --mae --width 128 --depth 2  
 

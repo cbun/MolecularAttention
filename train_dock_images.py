@@ -103,8 +103,6 @@ def get_args():
     parser.add_argument('--width', default=256, type=int, help='rep size')
     parser.add_argument('--depth', default=2, type=int, help='num linear layers')
     parser.add_argument('--no_pretrain', action='store_true')
-    parser.add_argument('--forward', action='store_true')
-    parser.add_argument('--freeze', action='store_true')
 
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
@@ -113,7 +111,7 @@ def get_args():
     print(args)
     return args
 
-def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1):
+def run_eval(model, train_loader, name,  ordinal=False, classifacation=False, enseml=False, tasks=1):
     with torch.no_grad():
         model.eval()
         if classifacation:
@@ -132,8 +130,8 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
         valuess = []
         model.eval()
 
-        for i in range(25 if enseml else 1):
-            for i, (drugfeats, value) in enumerate(train_loader):
+        for i in range(1):
+            for i, (drugfeats, value) in tqdm(enumerate(train_loader)):
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
                 mse_loss = torch.nn.functional.l1_loss(pred, value).mean()
@@ -150,7 +148,7 @@ def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=Tr
         print(preds.shape, values.shape)
         preds = np.mean(preds, axis=0)
         values = np.mean(values, axis=0)
-
+        np.save("out_" + name + ".npy", np.stack([values, preds]))
         if ordinal:
             preds, values = np.round(preds), np.round(values)
             incorrect = 0
@@ -271,7 +269,7 @@ def validate_smiles(smiles):
 
 def load_data_models(fname, random_seed, workers, batch_size, precomputed_values, precomputed_images,  pname='logp', nheads=1,
                       eval=False, tasks=1, gpus=1, rotate=False,
-                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, depth=2, pretrain=True, forward=False, freeze=False):
+                     classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, depth=2, pretrain=True):
     df = pd.read_csv(fname, header=0)
     smiles=list(df.iloc[:,0].values)
     features = np.load(precomputed_values).astype(np.float32).reshape(-1,1)
@@ -286,43 +284,36 @@ def load_data_models(fname, random_seed, workers, batch_size, precomputed_values
     train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
                                                                       test_size=0.2, random_state=random_seed)
 
-    if eval:
-        print("Assume data is already scaled correctly")
-        test_dataset = ImageDatasetPreLoaded(smiles, features,
-                                         property_func=get_properety_function(pname),
-                                         values=tasks, rot=0, images=precomputed_images)
-        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
-                             shuffle=(not eval))
-        train_loader=None
-    else:
-        train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
+    train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
                                                                       test_size=0.2, random_state=random_seed, shuffle=True)
-        scaler = MinMaxScaler()
-        features = scaler.fit_transform(features)
-        
-        train_features = features[train_idx]
-        test_features = features[test_idx]
-        train_dataset = ImageDatasetPreLoaded(train_smiles, train_features,
-                                          property_func=get_properety_function(pname),
-                                          values=tasks, rot=359, images=[precomputed_images[i] for i in train_idx])
-        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+    #scaler = MinMaxScaler()
+    #features = scaler.fit_transform(features)
+    #print("Scaled dock scores")
+    
+    train_features = features[train_idx]
+    test_features = features[test_idx]
+    train_dataset = ImageDatasetPreLoaded(train_smiles, train_features,
+                                        property_func=get_properety_function(pname),
+                                        values=tasks, rot=359, images=[precomputed_images[i] for i in train_idx])
+    train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=True)
-        test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, property_func=get_properety_function(pname),
+    test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, property_func=get_properety_function(pname),
                                          values=tasks, rot=359, images=[precomputed_images[i] for i in test_idx])
-        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+    test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=True)
     
-    
-    if intermediate_rep is None:
-        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout, linear_layers=depth, pretrain=pretrain, forward=forward, freeze=freeze)
-    else:
-        model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
-                                      intermediate_rep=intermediate_rep, linear_layers=depth, pretrain=pretrain, forward=forward, freeze=freeze)
+    model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout,
+                                      intermediate_rep=intermediate_rep, linear_layers=depth, pretrain=pretrain)
 
+        
     if gpus > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         model = torch.nn.DataParallel(model)
 
+    df_train = pd.DataFrame(train_smiles)
+    df_train.to_csv("train.smi", index=False)
+    df_test = pd.DataFrame(test_smiles)
+    df_test.to_csv("test.smi", index=False)
         
     return train_loader, test_loader, model
 
@@ -338,20 +329,17 @@ if __name__ == '__main__':
                                                         eval=args.eval,
                                                         tasks=args.t, gpus=args.g, rotate=args.rotate,
                                                         classifacation=args.classifacation, ensembl=args.ensemble_eval,
-                                                        dropout=args.dropout_rate, intermediate_rep=args.width, depth=args.depth, pretrain=(not args.no_pretrain), forward = args.forward, freeze=args.freeze)
+                                                        dropout=args.dropout_rate, intermediate_rep=args.width, depth=args.depth, pretrain=(not args.no_pretrain))
     print("Done.")
 
     print("Starting trainer.")
     if args.eval:
         model.load_state_dict(torch.load(args.o)['model_state'])
         model.to(device)
-        run_eval(model, test_loader, ordinal=False, enseml=args.ensemble_eval)
+        run_eval(model, test_loader, "test", ordinal=False, enseml=args.ensemble_eval)
+        run_eval(model, test_loader, "train", ordinal=False, enseml=args.ensemble_eval)
         exit()
     model.to(device)
-    if args.freeze:
-        optimizer = args.optimizer(model.prop_model.parameters(), lr=args.lr)
-    else:     
-        optimizer = args.optimizer(model.parameters(), lr=args.lr)
 
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
