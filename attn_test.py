@@ -17,9 +17,10 @@ if torch.cuda.is_available():
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def get_attn_pred(drugfeats, value):
+def get_attn_pred(model, drugfeats, value):
     drugfeats, value = drugfeats.to(device), value.to(device)
     model.return_attns = True
+    model = model.to(device)
     pred, attn = model(drugfeats.unsqueeze(0))
     print('test', torch.max(attn), torch.min(attn))
     attn = attn.squeeze(0).detach()
@@ -68,18 +69,18 @@ if __name__ == '__main__':
     # bads = find_bad_id(dset)
     # print(bads)
 
-    idx = 5423
+    idx = 243498
     imout, act = dset[idx]
     imout = TT.ToTensor()(TF.rotate(TT.ToPILImage()(imout), 65))
     # imout = TT.ToTensor()(TF.to_grayscale(TT.ToPILImage()(imout), 3))
-    pred, attn, image = get_attn_pred(imout, act)
+    pred, attn, image = get_attn_pred(model, imout, act)
     print(pred.shape, attn.shape, image.shape)
 
     # imout = imout * (attn.squeeze(0) < 0.75)
     # pred, attn, image = get_attn_pred(imout, act)
     # print(pred.shape, attn.shape, image.shape)
 
-    attn = attn.squeeze(0).numpy()
+    attn = attn.cpu().squeeze(0).numpy()
     atn_max = np.max(attn)
     atn_min = np.min(attn)
     print(atn_min, atn_max)
@@ -88,7 +89,7 @@ if __name__ == '__main__':
     fig, axs = plt.subplots(1, 3, figsize=(18, 6))
 
     axs[0].imshow(np.transpose(imout.detach().numpy(), (1, 2, 0)), interpolation='nearest')
-    axs[1].imshow(np.transpose(image.detach().numpy(), (1, 2, 0)), interpolation='nearest')
+    axs[1].imshow(np.transpose(image.cpu().detach().numpy(), (1, 2, 0)), interpolation='nearest')
     # plt.contourf(list(range(128)), list(range(128)), 1.0 - attn, cmap=my_cmap, levels=10)
     im = axs[1].imshow(np.transpose(attn, (1,2,0))[:,:,0], cmap='jet', alpha=0.5)
     cax = fig.add_axes([0.27, 0.8, 0.5, 0.05])
@@ -103,7 +104,7 @@ if __name__ == '__main__':
     from matplotlib.colors import LinearSegmentedColormap
 
     model.return_attn = False
-    integrated_gradients = IntegratedGradients(model)
+    integrated_gradients = IntegratedGradients(model.cpu())
     attributions_ig = integrated_gradients.attribute(imout.unsqueeze(0), target=None, n_steps=100)
     default_cmap = LinearSegmentedColormap.from_list('custom blue',
                                                      [(0, '#ffffff'),
@@ -118,4 +119,4 @@ if __name__ == '__main__':
                                  sign='positive',
                                  outlier_perc=1, plt_fig_axis=(fig,axs[2]))
 
-    plt.show()
+    plt.savefig(args.o+".attn.png")

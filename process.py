@@ -3,7 +3,6 @@ import pandas as pd
 import os
 import sys
 from rdkit import Chem
-import numpy as np
 import multiprocessing
 import argparse
 from tqdm import tqdm
@@ -50,7 +49,7 @@ if __name__ == '__main__':
     smiles = pd.DataFrame(df_r.smiles)
 
     # drop invalid smiles rows 
-    d = validate.drop_indices(smiles)
+    d = drop_indices(smiles)
     df_r = df_r.drop(d)
     for target_name in df_r.columns[1:]:
         print(target_name)
