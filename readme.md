@@ -30,5 +30,6 @@ python train.py -pb --rotate --mae -t 1 -p custom -b 512 --epochs 50 --precomput
            --precomputed_images <dir>/<target_name>.images.npy --width 128 --depth 2 -r 0 --scale --eval_test \
            --output_preds <dir>/out_test > <dir>/log_test.txt
 
-# plot enrichment surface                                                                                                           python res.py <dir>/out_test.npy <dir> <target_name>
+# plot enrichment surface                                                  
+python res.py <dir>/out_test.npy <dir> <target_name>
  ```
