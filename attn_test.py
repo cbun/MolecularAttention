@@ -9,13 +9,13 @@ from train import load_data_models
 from tqdm import tqdm
 import torchvision.transforms.functional as TF
 import torchvision.transforms as TT
+from train import get_args
 if torch.cuda.is_available():
     import torch.backends.cudnn
 
     torch.backends.cudnn.benchmark = True
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 def get_attn_pred(drugfeats, value):
     drugfeats, value = drugfeats.to(device), value.to(device)
@@ -42,17 +42,19 @@ def find_bad_id(dset):
 
 
 if __name__ == '__main__':
+
+    args = get_args()
     cmap = pl.cm.binary
     my_cmap = cmap(np.arange(cmap.N))
     my_cmap[:, -1] = np.linspace(0, 1, cmap.N)
     my_cmap = ListedColormap(my_cmap)
 
-    file = 'saved_models/moses_hacceptor.pt'
+    file = args.o
     args = torch.load(file, map_location=torch.device('cpu'))['args']
 
     # dset, _, model = load_data_models("moses/test_scaffolds.smi", 32, 1, 1, 'weight', nheads=8, dropout=0.1, return_datasets=True, precompute_frame="moses/test_scaffolds_weight.npy", intermediate_rep=128)
-    dset, _, model = load_data_models("moses/test_scaffolds.smi", args.r, args.w, args.b, args.p, nheads=args.nheads,
-                                                        precompute_frame="moses/test_scaffold_hacceptor.npy",
+    dset, _, model, _ = load_data_models(args.i, args.r, args.w, args.b, args.p, nheads=args.nheads,
+                                                        precompute_frame=args.precomputed_values,
                                                         imputer_pickle=args.imputer_pickle,
                                                         tasks=args.t, rotate=0,
                                                         classifacation=args.classifacation, ensembl=args.ensemble_eval,
