@@ -142,6 +142,9 @@ class ImageDatasetPreLoaded(Dataset):
             image = transforms.ToPILImage()(torch.from_numpy(self.images[item].astype(np.float32) / 255.0))
             image = self.transform(image)
 
+            if self.descs is None:
+                return image
+            
             if self.imputer is not None:
                 vec = self.scaler.transform(self.imputer.transform(self.descs[item].reshape(1,-1))).flatten()
             else:

@@ -19,7 +19,7 @@ from metrics import trackers
 from models import imagemodel
 from sklearn.preprocessing import MinMaxScaler
 from scipy import stats
-
+import pickle
 if torch.cuda.is_available():
     import torch.backends.cudnn
 
@@ -119,7 +119,6 @@ def get_args():
     parser.add_argument('--dropout_rate', default=0.0, type=float, help='dropout rate')
     parser.add_argument('--eval_test', action='store_true')
     parser.add_argument('--eval_train', action='store_true')
-    parser.add_argument('--eval_all', action='store_true')
     parser.add_argument('--classifacation', action='store_true')
     parser.add_argument('--ensemble_eval', action='store_true')
     parser.add_argument('--mae', action='store_true')
@@ -131,7 +130,8 @@ def get_args():
     parser.add_argument('--mask', type=str, default=None)
     parser.add_argument('--no_pretrain', action='store_true')
     parser.add_argument('--output_preds', default=None, type=str, required=False, help='output preds when running eval')
-    parser.add_argument('--scale', action='store_true')
+    parser.add_argument('--scale', type=str, default=None, help='name of file to save/load for dock score scaler')
+    parser.add_argument('--infer', action='store_true')
 
     args = parser.parse_args()
     if args.metric_plot_prefix is None:
@@ -145,6 +145,23 @@ def get_args():
     return args
 
 
+def run_infer(model, data_loader, tasks=1, mae=True, pb=True, output_preds=None, scaler=None):
+    preds = []
+    with torch.no_grad():
+        model.eval()
+        for i, drugfeats in tqdm(enumerate(data_loader)):
+            drugfeats = drugfeats.to(device)
+            pred, attn = model(drugfeats)
+            preds.append(pred.detach().cpu().numpy().flatten())
+    preds = np.asarray(np.concatenate(preds, axis=0))
+    print(preds.shape)
+    if scaler is not None:
+        print("Inverting docking scaling")
+        preds = scaler.inverse_transform(preds.reshape(-1,1)).flatten()
+
+    if output_preds is not None:
+        np.save(output_preds, preds)
+            
 def run_eval(model, train_loader, ordinal=False, classifacation=False, enseml=True, tasks=1, mae=False, pb=True, output_preds=None, scaler=None):
     with torch.no_grad():
         model.eval()
@@ -368,7 +385,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
                      precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, cvs=None, rotate=False,
                      classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None,
-                     depth=None, bw=True, mask=None, pretrain=True, scale=True, eval_all=False):
+                     depth=None, bw=True, mask=None, pretrain=True, scale=None, infer=False):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -388,10 +405,10 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_smiles = [smiles[i] for i in train_idx]
         test_smiles = [smiles[i] for i in test_idx]
     else:
-        if eval_all:
+        if infer:
             train_idx=[]
-            test_idx=list(range(len(smiles)))
             train_smiles=[]
+            test_idx=list(range(len(smiles)))
             test_smiles=smiles
         else:
             train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
@@ -414,14 +431,16 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
     else:
         precomputed_images = False
 
-    scaler=MinMaxScaler()    
+    scaler=None    
     if precompute_frame is not None:
         features = np.load(precompute_frame)
         #features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
         assert (features.shape[0] == len(smiles))
-        if scale:
+        if scale is not None:
+            scaler = MinMaxScaler()
             features = scaler.fit_transform(features.reshape(-1,1))
             print("Scaled dock scores")
+            pickle.dump(scaler, open(scale, 'wb'))
         train_features = features[train_idx]
         test_features = features[test_idx]
 
@@ -430,17 +449,12 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         else:
             rotate = 0
         rotate = 359 if (ensembl and eval) else rotate
-
-        if eval_all:
-            train_dataset=None
-            train_loader=None
-        else:
-            train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
-                                                  property_func=get_properety_function(pname),
-                                                  values=tasks, rot=rotate, bw=bw,
-                                                  images=None if not precomputed_images else train_images,
-                                                  mask=None if not mask else train_mask)
-            train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+        train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
+                                               property_func=get_properety_function(pname),
+                                               values=tasks, rot=rotate, bw=bw,
+                                               images=None if not precomputed_images else train_images,
+                                               mask=None if not mask else train_mask)
+        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=(not eval))
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
@@ -451,14 +465,19 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                  shuffle=False)
     else:
-        assert (False)
-        # train_dataset = ImageDataset(train_idx, property_func=get_properety_function(pname),
-        #                              values=tasks)
-        # train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
-        #
-        # test_dataset = ImageDataset(test_idx, property_func=get_properety_function(pname),
-        #                             values=tasks)
-        # test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size)
+        if not infer:
+            assert(False)
+        train_dataset = None
+        train_loader = None
+        test_dataset = ImageDatasetPreLoaded(test_smiles, None, imputer_pickle,
+                                             property_func=get_properety_function(pname),
+                                             values=tasks, rot=rotate,
+                                             images=None if not precomputed_images else test_images, bw=bw,
+                                             mask=None if not mask else test_mask)
+        test_loader = DataLoader(test_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+                                 shuffle=False)
+        if scale is not None:
+            scaler = pickle.load(open(scale, 'rb'))
 
     if intermediate_rep is None:
         model = imagemodel.ImageModel(nheads=nheads, outs=tasks, classifacation=classifacation, dr=dropout, linear_layers=depth, pretrain=pretrain)
@@ -486,25 +505,31 @@ if __name__ == '__main__':
                                                         dropout=args.dropout_rate, cvs=args.cv,
                                                         intermediate_rep=args.width,
                                                         precomputed_images=args.precomputed_images, depth=args.depth,
-                                                                bw=args.bw, mask=args.mask, pretrain=(not args.no_pretrain), scale=args.scale, eval_all=args.eval_all)
+                                                                bw=args.bw, mask=args.mask, pretrain=(not args.no_pretrain),
+                                                                scale=args.scale, infer=args.infer)
     print("Done.")
 
-    print("Starting trainer.")
     if args.eval_train:
         model.load_state_dict(torch.load(args.o)['model_state'])
         model.to(device)
-        run_eval(model, train_loader, ordinal=False, enseml=args.ensemble_eval, output_preds=args.output_preds, scaler=scaler if args.scale else None)
+        run_eval(model, train_loader, ordinal=False, enseml=args.ensemble_eval, output_preds=args.output_preds, scaler=scaler)
         exit()
-    elif args.eval_test or args.eval_all:
+    elif args.eval_test:
         model.load_state_dict(torch.load(args.o)['model_state'])
         model.to(device)
-        run_eval(model, test_loader, ordinal=False, enseml=args.ensemble_eval, output_preds=args.output_preds, scaler=scaler if args.scale else None)
+        run_eval(model, test_loader, ordinal=False, enseml=args.ensemble_eval, output_preds=args.output_preds, scaler=scaler)
         exit()
+    elif args.infer:
+        model.load_state_dict(torch.load(args.o)['model_state'])
+        model.to(device)
+        run_infer(model, test_loader, output_preds=args.output_preds, scaler=scaler)
+        exit()
+        
     model.to(device)
     optimizer = args.optimizer(model.parameters(), lr=args.lr)
     opt_level = args.amp
     model, optimizer = amp.initialize(model, optimizer, opt_level=opt_level)
-
+    print("Starting trainer.")
     print("Number of parameters:",
           sum([np.prod(p.size()) for p in filter(lambda p: p.requires_grad, model.parameters())]))
     model, history = trainer(model, optimizer, train_loader, test_loader, out=args.o, epochs=args.epochs, pb=args.pb,
