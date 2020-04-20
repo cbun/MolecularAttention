@@ -119,6 +119,7 @@ def get_args():
     parser.add_argument('--dropout_rate', default=0.0, type=float, help='dropout rate')
     parser.add_argument('--eval_test', action='store_true')
     parser.add_argument('--eval_train', action='store_true')
+    parser.add_argument('--eval_all', action='store_true')
     parser.add_argument('--classifacation', action='store_true')
     parser.add_argument('--ensemble_eval', action='store_true')
     parser.add_argument('--mae', action='store_true')
@@ -367,7 +368,7 @@ def trainer(model, optimizer, train_loader, test_loader, epochs=5, tasks=1, clas
 def load_data_models(fname, random_seed, workers, batch_size, pname='logp', return_datasets=False, nheads=1,
                      precompute_frame=None, imputer_pickle=None, eval=False, tasks=1, cvs=None, rotate=False,
                      classifacation=False, ensembl=False, dropout=0, intermediate_rep=None, precomputed_images=None,
-                     depth=None, bw=True, mask=None, pretrain=True, scale=True):
+                     depth=None, bw=True, mask=None, pretrain=True, scale=True, eval_all=False):
     df = pd.read_csv(fname, header=None)
     smiles = []
     with multiprocessing.Pool() as p:
@@ -387,9 +388,16 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
         train_smiles = [smiles[i] for i in train_idx]
         test_smiles = [smiles[i] for i in test_idx]
     else:
-        train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
+        if eval_all:
+            train_idx=[]
+            test_idx=list(range(len(smiles)))
+            train_smiles=[]
+            test_smiles=smiles
+        else:
+            train_idx, test_idx, train_smiles, test_smiles = train_test_split(list(range(len(smiles))), smiles,
                                                                           test_size=0.2, random_state=random_seed,
                                                                           shuffle=True)
+        print(len(train_idx), len(test_idx))
     if mask is not None:
         print("using mask")
         mask = np.load(mask)
@@ -423,13 +431,16 @@ def load_data_models(fname, random_seed, workers, batch_size, pname='logp', retu
             rotate = 0
         rotate = 359 if (ensembl and eval) else rotate
 
-
-        train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
-                                              property_func=get_properety_function(pname),
-                                              values=tasks, rot=rotate, bw=bw,
-                                              images=None if not precomputed_images else train_images,
-                                              mask=None if not mask else train_mask)
-        train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
+        if eval_all:
+            train_dataset=None
+            train_loader=None
+        else:
+            train_dataset = ImageDatasetPreLoaded(train_smiles, train_features, imputer_pickle,
+                                                  property_func=get_properety_function(pname),
+                                                  values=tasks, rot=rotate, bw=bw,
+                                                  images=None if not precomputed_images else train_images,
+                                                  mask=None if not mask else train_mask)
+            train_loader = DataLoader(train_dataset, num_workers=workers, pin_memory=True, batch_size=batch_size,
                                   shuffle=(not eval))
 
         test_dataset = ImageDatasetPreLoaded(test_smiles, test_features, imputer_pickle,
@@ -475,7 +486,7 @@ if __name__ == '__main__':
                                                         dropout=args.dropout_rate, cvs=args.cv,
                                                         intermediate_rep=args.width,
                                                         precomputed_images=args.precomputed_images, depth=args.depth,
-                                                                bw=args.bw, mask=args.mask, pretrain=(not args.no_pretrain), scale=args.scale)
+                                                                bw=args.bw, mask=args.mask, pretrain=(not args.no_pretrain), scale=args.scale, eval_all=args.eval_all)
     print("Done.")
 
     print("Starting trainer.")
@@ -484,7 +495,7 @@ if __name__ == '__main__':
         model.to(device)
         run_eval(model, train_loader, ordinal=False, enseml=args.ensemble_eval, output_preds=args.output_preds, scaler=scaler if args.scale else None)
         exit()
-    elif args.eval_test:
+    elif args.eval_test or args.eval_all:
         model.load_state_dict(torch.load(args.o)['model_state'])
         model.to(device)
         run_eval(model, test_loader, ordinal=False, enseml=args.ensemble_eval, output_preds=args.output_preds, scaler=scaler if args.scale else None)
