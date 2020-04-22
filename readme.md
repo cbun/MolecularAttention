@@ -14,7 +14,7 @@ python process.py -r <raw csv file> -i <generated images .npy file>
 ```
 Each directory will contain a <target_name>.smi file with smiles, a <target_name>.reg.npy file with dock scores, and a <target_name>.images.npy file with images
 
-Training: (saves model, training curves, scaling object)
+Training: (saves model, training curve plots, scaling object)
 ```
 python train.py -pb --rotate --mae -t 1 -p custom -b 512 --epochs 50 --precomputed_values <target_name>.reg.npy \
                         --lr 8e-5 -w 3 -i <target_name>.smi -o model.pt --metric_plot_prefix <target_name> \
@@ -22,7 +22,7 @@ python train.py -pb --rotate --mae -t 1 -p custom -b 512 --epochs 50 --precomput
                         --depth 2 -r 0 --scale scaler.pkl
 ```        
 
-Evaluation: (prints out mae, pearson correlation, enrichment surface plot)
+Evaluation: (prints out mae, pearson correlation, saves enrichment surface plot, prediction array)
 ```
 # evaluate on test data                                                                                                             
 python train.py --eval_test --output_preds out_test  -pb --rotate --mae -t 1 -p custom -b 512 --epochs 50 \ 
