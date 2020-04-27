@@ -31,7 +31,7 @@ python train.py --eval_test --output_preds out_test  -pb --rotate --mae -t 1 -p 
            
 
 # plot enrichment surface                                                  
-python res.py <dir>/out_test.npy <dir> <target_name>
+python res.py out_test.npy . <target_name>
  ```
  
  Inference: (saves prediction array)
