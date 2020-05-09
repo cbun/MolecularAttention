@@ -159,7 +159,7 @@ def get_args():
     parser.add_argument("--dropout_rate", default=0.0, type=float, help="dropout rate")
     parser.add_argument("--eval_test", action="store_true")
     parser.add_argument("--eval_train", action="store_true")
-    parser.add_argument("--classifacation", action="store_true")
+    parser.add_argument("--classification", action="store_true")
     parser.add_argument("--ensemble_eval", action="store_true")
     parser.add_argument("--mae", action="store_true")
     parser.add_argument(
@@ -224,7 +224,7 @@ def run_eval(
     model,
     train_loader,
     ordinal=False,
-    classifacation=False,
+    classification=False,
     enseml=True,
     tasks=1,
     mae=False,
@@ -234,7 +234,7 @@ def run_eval(
 ):
     with torch.no_grad():
         model.eval()
-        if classifacation:
+        if classification:
             tracker = (
                 trackers.ComplexPytorchHistory(
                     metric=metrics.roc_auc_score, metric_name="roc-auc"
@@ -276,7 +276,7 @@ def run_eval(
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
 
-                if classifacation:
+                if classification:
                     mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(
                         pred, value
                     ).mean()
@@ -348,7 +348,7 @@ def trainer(
     test_loader,
     epochs=5,
     tasks=1,
-    classifacation=False,
+    classification=False,
     mae=False,
     pb=True,
     out="model.pt",
@@ -357,7 +357,7 @@ def trainer(
     use_mask=False,
 ):
     device = next(model.parameters()).device
-    if classifacation:
+    if classification:
         tracker = (
             trackers.ComplexPytorchHistory(
                 metric=metrics.roc_auc_score, metric_name="roc-auc"
@@ -411,7 +411,7 @@ def trainer(
             drugfeats, value = drugfeats.to(device), value.to(device)
             pred, attn = model(drugfeats)
 
-            if classifacation:
+            if classification:
                 mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(
                     pred, value
                 )
@@ -465,7 +465,7 @@ def trainer(
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
 
-                if classifacation:
+                if classification:
                     mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(
                         pred, value
                     )
@@ -541,7 +541,7 @@ def load_data_models(
     tasks=1,
     cvs=None,
     rotate=False,
-    classifacation=False,
+    classification=False,
     ensembl=False,
     dropout=0,
     intermediate_rep=None,
@@ -564,7 +564,7 @@ def load_data_models(
     del df
 
     if cvs is not None:
-        if classifacation and tasks == 1 and precompute_frame is not None:
+        if classification and tasks == 1 and precompute_frame is not None:
             ts = np.load(precompute_frame)
             kfold = StratifiedKFold(random_state=random_seed, n_splits=5, shuffle=True)
             train_idx, test_idx = list(
@@ -691,7 +691,7 @@ def load_data_models(
         model = imagemodel.ImageModel(
             nheads=nheads,
             outs=tasks,
-            classifacation=classifacation,
+            classification=classification,
             dr=dropout,
             linear_layers=depth,
             pretrain=pretrain,
@@ -700,7 +700,7 @@ def load_data_models(
         model = imagemodel.ImageModel(
             nheads=nheads,
             outs=tasks,
-            classifacation=classifacation,
+            classification=classification,
             dr=dropout,
             intermediate_rep=intermediate_rep,
             linear_layers=depth,
@@ -731,7 +731,7 @@ if __name__ == "__main__":
         eval=args.eval_train or args.eval_test,
         tasks=args.t,
         rotate=args.rotate,
-        classifacation=args.classifacation,
+        classification=args.classification,
         ensembl=args.ensemble_eval,
         dropout=args.dropout_rate,
         cvs=args.cv,
@@ -798,7 +798,7 @@ if __name__ == "__main__":
         out=args.o,
         epochs=args.epochs,
         pb=args.pb,
-        classifacation=args.classifacation,
+        classification=args.classification,
         tasks=args.t,
         mae=args.mae,
         cyclic=args.cyclic,
