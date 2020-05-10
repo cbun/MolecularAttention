@@ -22,7 +22,7 @@ from features.datasets import (
 )
 from features.generateFeatures import MORDRED_SIZE
 from data.descriptors import load_descriptor_data_sets
-from data.fingerprints import load_fingerprint_data
+from data.fingerprints import load_fingerprint_data, FingerprintDataset
 from data.multi import ConcatDataset
 from metrics import trackers
 from models import imagemodel, mm_model
@@ -106,8 +106,12 @@ def validate_smiles(smiles):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--descriptors", type=str, required=True, help="descriptors input file")
-    parser.add_argument("--fingerprints", type=str, required=True, help="fingerprints input file")
+    parser.add_argument(
+        "--descriptors", type=str, required=True, help="descriptors input file"
+    )
+    parser.add_argument(
+        "--fingerprints", type=str, required=True, help="fingerprints input file"
+    )
     parser.add_argument(
         "--precomputed_values",
         type=str,
@@ -185,7 +189,7 @@ def get_args():
         required=False,
         help="output preds when running eval",
     )
-    parser.add_argument('--scale', action='store_true')
+    parser.add_argument("--scale", action="store_true")
     parser.add_argument("--infer", action="store_true")
 
     args = parser.parse_args()
@@ -396,9 +400,7 @@ def trainer(
         if pb:
             gen = tqdm(
                 enumerate(train_loader),
-                total=int(
-                    len(train_loader.dataset) / train_loader.batch_size
-                ),
+                total=int(len(train_loader.dataset) / train_loader.batch_size),
                 desc="training",
             )
         else:
@@ -406,14 +408,18 @@ def trainer(
             gen = enumerate(train_loader)
         for v in gen:
             if use_mask:
-                exit('todo mask')
+                exit("todo mask")
                 i, (drugfeats, value, mask) = v
                 mask = mask.float().to(device)
             else:
-                i, ((drugfeats, value), (desc_feats, _value_desc)) = v
+                i, ((drugfeats, value), (desc_feats, _value_desc), fng_feats) = v
                 # assert value == _value_desc #TODO Dupe labels
             optimizer.zero_grad()
-            drugfeats, desc_feats, value = drugfeats.to(device), desc_feats.to(device), value.to(device)
+            drugfeats, desc_feats, value = (
+                drugfeats.to(device),
+                desc_feats.to(device),
+                value.to(device),
+            )
             pred, attn = model(drugfeats, desc_feats)
 
             if classification:
@@ -456,22 +462,24 @@ def trainer(
             if pb:
                 gen = tqdm(
                     enumerate(test_loader),
-                    total=int(
-                        len(test_loader.dataset) / test_loader.batch_size
-                    ),
+                    total=int(len(test_loader.dataset) / test_loader.batch_size),
                     desc="eval",
                 )
             else:
                 gen = enumerate(test_loader)
             for v in gen:
                 if use_mask:
-                    #TODO
-                    exit('todo mask2')
+                    # TODO
+                    exit("todo mask2")
                     i, (drugfeats, value, mask) = v
                     mask = mask.float().to(device)
                 else:
-                    i, ((drugfeats, value), (desc_feats, _value_desc)) = v
-                drugfeats, desc_feats, value = drugfeats.to(device), desc_feats.to(device), value.to(device)
+                    i, ((drugfeats, value), (desc_feats, _value_desc), fng_feats) = v
+                drugfeats, desc_feats, value = (
+                    drugfeats.to(device),
+                    desc_feats.to(device),
+                    value.to(device),
+                )
                 pred, attn = model(drugfeats, desc_feats)
 
                 if classification:
@@ -534,20 +542,6 @@ def trainer(
         if earlystopping.early_stop:
             break
     return model, tracker
-
-
-def get_descriptor_loaders(filename_descriptors, train_idx, test_idx, batch_size=32, nrows=None):
-
-    desc_dataset_train, desc_dataset_test = load_descriptor_data_sets(
-        filename_descriptors, train_idx, test_idx, read_n_rows=nrows
-    )
-    desc_train_loader = DataLoader(
-        dataset=desc_dataset_train, batch_size=batch_size, shuffle=True, num_workers=2
-    )
-    desc_test_loader = DataLoader(
-        dataset=desc_dataset_test, batch_size=batch_size, shuffle=True, num_workers=2
-    )
-    return desc_train_loader, desc_test_loader
 
 
 def load_data_models(
@@ -635,11 +629,6 @@ def load_data_models(
     else:
         precomputed_images = False
 
-    ## Load Descriptors
-    train_loader_desc, test_loader_desc = get_descriptor_loaders(
-        fname_descriptor, train_idx, test_idx, batch_size, nrows=nrows
-    )
-
     scaler = None
     # if precompute_frame is not None:
     if True:  ## TODO unneeded
@@ -653,16 +642,18 @@ def load_data_models(
             features = scaler.fit_transform(features.reshape(-1, 1))
             print("Scaled dock scores")
 
-            #TODO output scalar
+            # TODO output scalar
             # pickle.dump(scaler, open(scale, "wb"))
-
 
         train_features = features[train_idx]
         test_features = features[test_idx]
 
-        train_dataset_desc, test_dataset_desc= load_descriptor_data_sets(
+        train_dataset_desc, test_dataset_desc = load_descriptor_data_sets(
             fname_descriptor, train_idx, test_idx, read_n_rows=nrows
         )
+
+        train_dataset_fng = FingerprintDataset(df_fingerprints[train_idx])
+        test_dataset_fng = FingerprintDataset(df_fingerprints[test_idx])
 
         if rotate:
             rotate = 359
@@ -699,7 +690,7 @@ def load_data_models(
             bw=bw,
             mask=None if not mask else test_mask,
         )
-    
+
         # test_loader = DataLoader(
         #     test_dataset,
         #     num_workers=workers,
@@ -708,15 +699,21 @@ def load_data_models(
         #     shuffle=False,
         # )
 
-        combined_dataset = ConcatDataset(train_dataset_image, train_dataset_desc)
-        train_loader = DataLoader(combined_dataset, batch_size=batch_size, shuffle=(not eval))
+        combined_dataset = ConcatDataset(
+            train_dataset_image, train_dataset_desc, train_dataset_fng
+        )
+        train_loader = DataLoader(
+            combined_dataset, batch_size=batch_size, shuffle=(not eval)
+        )
 
-        combined_dataset = ConcatDataset(test_dataset_image, test_dataset_desc)
+        combined_dataset = ConcatDataset(
+            test_dataset_image, test_dataset_desc, test_dataset_fng
+        )
         test_loader = DataLoader(combined_dataset, batch_size=batch_size, shuffle=False)
 
     else:
         # TODO handle branch
-        exit('todo')
+        exit("todo")
 
         if not infer:
             assert False
@@ -744,7 +741,7 @@ def load_data_models(
             scaler = pickle.load(open(scale, "rb"))
 
     if intermediate_rep is None:
-        exit('todo')
+        exit("todo")
         model = imagemodel.ImageModel(
             nheads=nheads,
             outs=tasks,
@@ -782,12 +779,7 @@ if __name__ == "__main__":
     np.random.seed(args.r)
     torch.manual_seed(args.r)
 
-    (
-        train_loader,
-        test_loader,
-        model,
-        scaler,
-    ) = load_data_models(
+    (train_loader, test_loader, model, scaler,) = load_data_models(
         args.descriptors,
         args.fingerprints,
         args.r,
@@ -812,7 +804,7 @@ if __name__ == "__main__":
         pretrain=(not args.no_pretrain),
         scale=args.scale,
         infer=args.infer,
-        nrows=None
+        nrows=None,
     )
     print("Done.")
 
@@ -843,9 +835,7 @@ if __name__ == "__main__":
     elif args.infer:
         model.load_state_dict(torch.load(args.o)["model_state"])
         model.to(device)
-        run_infer(
-            model, test_loader, output_preds=args.output_preds, scaler=scaler
-        )
+        run_infer(model, test_loader, output_preds=args.output_preds, scaler=scaler)
         exit()
 
     model.to(device)

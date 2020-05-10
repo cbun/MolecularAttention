@@ -16,7 +16,7 @@ class ImageModelPartial(nn.Module):
         linear_layers=2,
         model_path=None,
         pretrain=True,
-        merge_dim=256
+        merge_dim=256,
     ):
         super(ImageModelPartial, self).__init__()
         self.return_attn = True
@@ -87,14 +87,42 @@ class ImageModelPartial(nn.Module):
         # if self.return_attn:
         #     return self.prop_model(self.model(image)), attention
         # else:
-        #TODO attention
+        # TODO attention
         return self.model(image)
-        
+
+
 class DescriptorModelPartial(nn.Module):
-    def __init__(self, input_dim, merge_dim=256):
+    def __init__(self, input_dim, merge_dim=256, dropout_rate=0.1):
         super(DescriptorModelPartial, self).__init__()
 
-        dropout_rate = 0.1
+        self.fc1 = nn.Linear(input_dim, 512)
+        self.fc2 = nn.Linear(512, merge_dim)
+        # self.fc3 = nn.Linear(125, 60)
+        # self.fc4 = nn.Linear(60, 30)
+        # self.fc5 = nn.Linear(30, 1)
+
+        # self.bn0 = nn.BatchNorm1d(num_features=input_dim)
+        # self.bn1 = nn.BatchNorm1d(num_features=250)
+        # self.bn2 = nn.BatchNorm1d(num_features=125)
+        # self.bn3 = nn.BatchNorm1d(num_features=60)
+        # self.bn4 = nn.BatchNorm1d(num_features=30)
+
+        # torch.nn.init.normal_(self.fc5.weight.data)
+        self.dropout = nn.Dropout(0.1)
+
+    def forward(self, batch_seq_arr):
+        # x = F.relu(self.bn1(self.fc1(self.dropout(self.bn0(batch_seq_arr)))))
+        # x = F.relu(self.bn2(self.fc2(self.dropout(x))))
+        # x = F.relu(self.bn3(self.fc3(self.dropout(x))))
+        # x = F.relu(self.bn4(self.fc4(self.dropout(x))))
+        # predictions = self.fc5(self.dropout((((x)))))
+        predictions = self.fc2(self.dropout(self.fc1(batch_seq_arr)))
+        return predictions
+
+
+class FingerprintModelPartial(nn.Module):
+    def __init__(self, input_dim, merge_dim=256, dropout_rate=0.1):
+        super(DescriptorModelPartial, self).__init__()
 
         self.fc1 = nn.Linear(input_dim, 512)
         self.fc2 = nn.Linear(512, merge_dim)
@@ -122,16 +150,27 @@ class DescriptorModelPartial(nn.Module):
 
 
 class MultiModalModel(nn.Module):
-    def __init__(self, input_dim_descriptors, linear_layers=2, intermediate_rep=512, dr=0.15, merge_dim=256):
+    def __init__(
+        self,
+        input_dim_descriptors,
+        input_dim_fingerprints,
+        linear_layers=2,
+        intermediate_rep=512,
+        dr=0.15,
+        merge_dim=256,
+    ):
         super(MultiModalModel, self).__init__()
 
         self.image_model = ImageModelPartial()
         self.descriptor_model = DescriptorModelPartial(input_dim_descriptors)
-        num_modalities = 2
+        self.fingerprint_model = FingerprintModelPartial(input_dim_fingerprints)
+        num_modalities = 1
 
         self.linears = nn.ModuleList()
         for i in range(linear_layers):
-            self.linears.append(nn.Linear(merge_dim*num_modalities, merge_dim*num_modalities))
+            self.linears.append(
+                nn.Linear(merge_dim * num_modalities, merge_dim * num_modalities)
+            )
             self.linears.append(nn.ReLU(),)
             self.linears.append(nn.Dropout(dr))
 
@@ -145,9 +184,10 @@ class MultiModalModel(nn.Module):
             nn.Linear(intermediate_rep, 1),
         )
 
-    def forward(self, img_features, desc_features):
+    def forward(self, img_features, desc_features, fng_features):
 
         x_image = self.image_model(img_features)
         x_desc = self.descriptor_model(desc_features)
-        x = torch.cat((x_image, x_desc), dim=1)
-        return self.model(x), None #TODO attn
+        x_fng = self.descriptor_model(fng_features)
+        x = torch.cat((x_image, x_desc, x_fng), dim=1)
+        return self.model(x), None  # TODO attn
