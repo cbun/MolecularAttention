@@ -1,3 +1,4 @@
+import ipdb
 import argparse
 import multiprocessing
 
@@ -21,8 +22,10 @@ from features.datasets import (
 )
 from features.generateFeatures import MORDRED_SIZE
 from data.descriptors import load_descriptor_data_sets
+from data.fingerprints import load_fingerprint_data
+from data.multi import ConcatDataset
 from metrics import trackers
-from models import imagemodel
+from models import imagemodel, mm_model
 from sklearn.preprocessing import MinMaxScaler
 from scipy import stats
 import pickle
@@ -182,12 +185,7 @@ def get_args():
         required=False,
         help="output preds when running eval",
     )
-    parser.add_argument(
-        "--scale",
-        type=str,
-        default=None,
-        help="name of file to save/load for dock score scaler",
-    )
+    parser.add_argument('--scale', action='store_true')
     parser.add_argument("--infer", action="store_true")
 
     args = parser.parse_args()
@@ -224,7 +222,7 @@ def run_infer(
 
 def run_eval(
     model,
-    train_loader_image,
+    train_loader,
     ordinal=False,
     classification=False,
     enseml=True,
@@ -271,9 +269,9 @@ def run_eval(
             predss = []
             valuess = []
             if pb and not enseml:
-                second_range = tqdm(enumerate(train_loader_image))
+                second_range = tqdm(enumerate(train_loader))
             else:
-                second_range = enumerate(train_loader_image)
+                second_range = enumerate(train_loader)
             for i, (drugfeats, value) in second_range:
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
@@ -346,10 +344,8 @@ def run_eval(
 def trainer(
     model,
     optimizer,
-    train_loader_image,
-    test_loader_image,
-    train_loader_desc,
-    test_loader_desc,
+    train_loader,
+    test_loader,
     epochs=5,
     tasks=1,
     classification=False,
@@ -399,22 +395,23 @@ def trainer(
         model.train()
         if pb:
             gen = tqdm(
-                enumerate(train_loader_image),
+                enumerate(train_loader),
                 total=int(
-                    len(train_loader_image.dataset) / train_loader_image.batch_size
+                    len(train_loader.dataset) / train_loader.batch_size
                 ),
                 desc="training",
             )
         else:
-            gen = enumerate(zip(train_loader_image, train_loader_desc))
+            # gen = enumerate(zip(train_loader, train_loader_desc))
+            gen = enumerate(train_loader)
         for v in gen:
             if use_mask:
                 exit('todo mask')
                 i, (drugfeats, value, mask) = v
                 mask = mask.float().to(device)
             else:
-                i, ((drugfeats, value), (desc_feats, value_desc)) = v
-                assert value == value_desc #TODO Dupe labels
+                i, ((drugfeats, value), (desc_feats, _value_desc)) = v
+                # assert value == _value_desc #TODO Dupe labels
             optimizer.zero_grad()
             drugfeats, desc_feats, value = drugfeats.to(device), desc_feats.to(device), value.to(device)
             pred, attn = model(drugfeats, desc_feats)
@@ -458,14 +455,14 @@ def trainer(
         with torch.no_grad():
             if pb:
                 gen = tqdm(
-                    enumerate(test_loader_image),
+                    enumerate(test_loader),
                     total=int(
-                        len(test_loader_image.dataset) / test_loader_image.batch_size
+                        len(test_loader.dataset) / test_loader.batch_size
                     ),
                     desc="eval",
                 )
             else:
-                gen = enumerate(zip(test_loader_image, test_loader_desc))
+                gen = enumerate(test_loader)
             for v in gen:
                 if use_mask:
                     #TODO
@@ -473,7 +470,7 @@ def trainer(
                     i, (drugfeats, value, mask) = v
                     mask = mask.float().to(device)
                 else:
-                    i, ((drugfeats, value), (desc_feats, value_desc)) = v
+                    i, ((drugfeats, value), (desc_feats, _value_desc)) = v
                 drugfeats, desc_feats, value = drugfeats.to(device), desc_feats.to(device), value.to(device)
                 pred, attn = model(drugfeats, desc_feats)
 
@@ -521,13 +518,13 @@ def trainer(
 
         if out is not None:
             state = model.state_dict()
-            heads = model.nheads
+            # heads = model.nheads
             torch.save(
                 {
                     "model_state": state,
                     "opt_state": optimizer.state_dict(),
                     "history": tracker,
-                    "nheads": heads,
+                    # "nheads": heads,
                     "ntasks": tasks,
                     "args": args,
                     "amp": amp.state_dict(),
@@ -539,10 +536,10 @@ def trainer(
     return model, tracker
 
 
-def get_descriptor_loaders(train_idx, test_idx, batch_size=32):
+def get_descriptor_loaders(filename_descriptors, train_idx, test_idx, batch_size=32, nrows=None):
 
     desc_dataset_train, desc_dataset_test = load_descriptor_data_sets(
-        filename_descriptors, train_idx, test_idx, read_n_rows=read_n_rows
+        filename_descriptors, train_idx, test_idx, read_n_rows=nrows
     )
     desc_train_loader = DataLoader(
         dataset=desc_dataset_train, batch_size=batch_size, shuffle=True, num_workers=2
@@ -640,7 +637,7 @@ def load_data_models(
 
     ## Load Descriptors
     train_loader_desc, test_loader_desc = get_descriptor_loaders(
-        train_idx, test_idx, batch_size
+        fname_descriptor, train_idx, test_idx, batch_size, nrows=nrows
     )
 
     scaler = None
@@ -650,20 +647,29 @@ def load_data_models(
         features = docking_scores
         # features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
         assert features.shape[0] == len(smiles)
+
         if scale is not None:
             scaler = MinMaxScaler()
             features = scaler.fit_transform(features.reshape(-1, 1))
             print("Scaled dock scores")
-            pickle.dump(scaler, open(scale, "wb"))
+
+            #TODO output scalar
+            # pickle.dump(scaler, open(scale, "wb"))
+
+
         train_features = features[train_idx]
         test_features = features[test_idx]
+
+        train_dataset_desc, test_dataset_desc= load_descriptor_data_sets(
+            fname_descriptor, train_idx, test_idx, read_n_rows=nrows
+        )
 
         if rotate:
             rotate = 359
         else:
             rotate = 0
         rotate = 359 if (ensembl and eval) else rotate
-        train_dataset = ImageDatasetPreLoaded(
+        train_dataset_image = ImageDatasetPreLoaded(
             train_smiles,
             train_features,
             imputer_pickle,
@@ -674,15 +680,15 @@ def load_data_models(
             images=None if not precomputed_images else train_images,
             mask=None if not mask else train_mask,
         )
-        train_loader_image = DataLoader(
-            train_dataset,
-            num_workers=workers,
-            pin_memory=True,
-            batch_size=batch_size,
-            shuffle=(not eval),
-        )
+        # train_loader = DataLoader(
+        #     train_dataset,
+        #     num_workers=workers,
+        #     pin_memory=True,
+        #     batch_size=batch_size,
+        #     shuffle=(not eval),
+        # )
 
-        test_dataset = ImageDatasetPreLoaded(
+        test_dataset_image = ImageDatasetPreLoaded(
             test_smiles,
             test_features,
             imputer_pickle,
@@ -693,18 +699,29 @@ def load_data_models(
             bw=bw,
             mask=None if not mask else test_mask,
         )
-        test_loader_image = DataLoader(
-            test_dataset,
-            num_workers=workers,
-            pin_memory=True,
-            batch_size=batch_size,
-            shuffle=False,
-        )
+    
+        # test_loader = DataLoader(
+        #     test_dataset,
+        #     num_workers=workers,
+        #     pin_memory=True,
+        #     batch_size=batch_size,
+        #     shuffle=False,
+        # )
+
+        combined_dataset = ConcatDataset(train_dataset_image, train_dataset_desc)
+        train_loader = DataLoader(combined_dataset, batch_size=batch_size, shuffle=(not eval))
+
+        combined_dataset = ConcatDataset(test_dataset_image, test_dataset_desc)
+        test_loader = DataLoader(combined_dataset, batch_size=batch_size, shuffle=False)
+
     else:
+        # TODO handle branch
+        exit('todo')
+
         if not infer:
             assert False
         train_dataset = None
-        train_loader_image = None
+        train_loader = None
         test_dataset = ImageDatasetPreLoaded(
             test_smiles,
             None,
@@ -716,7 +733,7 @@ def load_data_models(
             bw=bw,
             mask=None if not mask else test_mask,
         )
-        test_loader_image = DataLoader(
+        test_loader = DataLoader(
             test_dataset,
             num_workers=workers,
             pin_memory=True,
@@ -737,25 +754,23 @@ def load_data_models(
             pretrain=pretrain,
         )
     else:
-        model = imagemodel.ImageModel(
-            nheads=nheads,
-            outs=tasks,
-            classification=classification,
-            dr=dropout,
-            intermediate_rep=intermediate_rep,
-            linear_layers=depth,
-            pretrain=pretrain,
-        )
+        # model = imagemodel.ImageModel(
+        #     nheads=nheads,
+        #     outs=tasks,
+        #     classification=classification,
+        #     dr=dropout,
+        #     intermediate_rep=intermediate_rep,
+        #     linear_layers=depth,
+        #     pretrain=pretrain,
+        # )
         model = mm_model.MultiModalModel(1613)
 
     if return_datasets:
         return train_dataset, test_dataset, model, scaler
     else:
         return (
-            train_loader_image,
-            test_loader_image,
-            train_loader_desc,
-            test_loader_desc,
+            train_loader,
+            test_loader,
             model,
             scaler,
         )
@@ -768,10 +783,8 @@ if __name__ == "__main__":
     torch.manual_seed(args.r)
 
     (
-        train_loader_image,
-        test_loader_image,
-        train_loader_desc,
-        test_loader_desc,
+        train_loader,
+        test_loader,
         model,
         scaler,
     ) = load_data_models(
@@ -799,6 +812,7 @@ if __name__ == "__main__":
         pretrain=(not args.no_pretrain),
         scale=args.scale,
         infer=args.infer,
+        nrows=None
     )
     print("Done.")
 
@@ -807,7 +821,7 @@ if __name__ == "__main__":
         model.to(device)
         run_eval(
             model,
-            train_loader_image,
+            train_loader,
             ordinal=False,
             enseml=args.ensemble_eval,
             output_preds=args.output_preds,
@@ -819,7 +833,7 @@ if __name__ == "__main__":
         model.to(device)
         run_eval(
             model,
-            test_loader_image,
+            test_loader,
             ordinal=False,
             enseml=args.ensemble_eval,
             output_preds=args.output_preds,
@@ -830,7 +844,7 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load(args.o)["model_state"])
         model.to(device)
         run_infer(
-            model, test_loader_image, output_preds=args.output_preds, scaler=scaler
+            model, test_loader, output_preds=args.output_preds, scaler=scaler
         )
         exit()
 
@@ -851,8 +865,8 @@ if __name__ == "__main__":
     model, history = trainer(
         model,
         optimizer,
-        train_loader_image,
-        test_loader_image,
+        train_loader,
+        test_loader,
         out=args.o,
         epochs=args.epochs,
         pb=args.pb,

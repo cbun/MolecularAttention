@@ -1,3 +1,6 @@
+import pandas as pd
+import numpy as np
+
 def load_fingerprint_data(file_path, header="ecfp4_512", nrows=None):
 
     try:

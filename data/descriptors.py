@@ -33,11 +33,10 @@ def load_descriptor_data_sets(descriptor_fname, train_idx=None, test_idx=None, r
     df = df.fillna(0)
 
     if train_idx is None and test_idx is None:
-        train_idx, test_idx = train_test_split(range(len(df)), test_size=0.2,
-                                               shuffle=True, random_state=random_state)
+        exit('todo handle no indexes')
 
     ## Take abs() of docking scores for better training
-    data_docking_score = abs(np.clip(df['dock_score'], a_min=None, a_max=0))
+    data_docking_score = abs(np.clip(df.iloc[:, 2], a_min=None, a_max=0))
     data_docking_score = np.asarray(data_docking_score).astype(np.float32)
 
     ## Standardize
