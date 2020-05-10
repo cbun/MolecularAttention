@@ -20,6 +20,7 @@ from features.datasets import (
     ImageDatasetPreLoaded,
 )
 from features.generateFeatures import MORDRED_SIZE
+from data.descriptors import load_descriptor_data_sets
 from metrics import trackers
 from models import imagemodel
 from sklearn.preprocessing import MinMaxScaler
@@ -102,7 +103,8 @@ def validate_smiles(smiles):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", type=str, required=True, help="smiles input file")
+    parser.add_argument("--descriptors", type=str, required=True, help="descriptors input file")
+    parser.add_argument("--fingerprints", type=str, required=True, help="fingerprints input file")
     parser.add_argument(
         "--precomputed_values",
         type=str,
@@ -222,7 +224,7 @@ def run_infer(
 
 def run_eval(
     model,
-    train_loader,
+    train_loader_image,
     ordinal=False,
     classification=False,
     enseml=True,
@@ -269,9 +271,9 @@ def run_eval(
             predss = []
             valuess = []
             if pb and not enseml:
-                second_range = tqdm(enumerate(train_loader))
+                second_range = tqdm(enumerate(train_loader_image))
             else:
-                second_range = enumerate(train_loader)
+                second_range = enumerate(train_loader_image)
             for i, (drugfeats, value) in second_range:
                 drugfeats, value = drugfeats.to(device), value.to(device)
                 pred, attn = model(drugfeats)
@@ -344,8 +346,10 @@ def run_eval(
 def trainer(
     model,
     optimizer,
-    train_loader,
-    test_loader,
+    train_loader_image,
+    test_loader_image,
+    train_loader_desc,
+    test_loader_desc,
     epochs=5,
     tasks=1,
     classification=False,
@@ -395,21 +399,25 @@ def trainer(
         model.train()
         if pb:
             gen = tqdm(
-                enumerate(train_loader),
-                total=int(len(train_loader.dataset) / train_loader.batch_size),
+                enumerate(train_loader_image),
+                total=int(
+                    len(train_loader_image.dataset) / train_loader_image.batch_size
+                ),
                 desc="training",
             )
         else:
-            gen = enumerate(train_loader)
+            gen = enumerate(zip(train_loader_image, train_loader_desc))
         for v in gen:
             if use_mask:
+                exit('todo mask')
                 i, (drugfeats, value, mask) = v
                 mask = mask.float().to(device)
             else:
-                i, (drugfeats, value) = v
+                i, ((drugfeats, value), (desc_feats, value_desc)) = v
+                assert value == value_desc #TODO Dupe labels
             optimizer.zero_grad()
-            drugfeats, value = drugfeats.to(device), value.to(device)
-            pred, attn = model(drugfeats)
+            drugfeats, desc_feats, value = drugfeats.to(device), desc_feats.to(device), value.to(device)
+            pred, attn = model(drugfeats, desc_feats)
 
             if classification:
                 mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(
@@ -450,20 +458,24 @@ def trainer(
         with torch.no_grad():
             if pb:
                 gen = tqdm(
-                    enumerate(test_loader),
-                    total=int(len(test_loader.dataset) / test_loader.batch_size),
+                    enumerate(test_loader_image),
+                    total=int(
+                        len(test_loader_image.dataset) / test_loader_image.batch_size
+                    ),
                     desc="eval",
                 )
             else:
-                gen = enumerate(test_loader)
+                gen = enumerate(zip(test_loader_image, test_loader_desc))
             for v in gen:
                 if use_mask:
+                    #TODO
+                    exit('todo mask2')
                     i, (drugfeats, value, mask) = v
                     mask = mask.float().to(device)
                 else:
-                    i, (drugfeats, value) = v
-                drugfeats, value = drugfeats.to(device), value.to(device)
-                pred, attn = model(drugfeats)
+                    i, ((drugfeats, value), (desc_feats, value_desc)) = v
+                drugfeats, desc_feats, value = drugfeats.to(device), desc_feats.to(device), value.to(device)
+                pred, attn = model(drugfeats, desc_feats)
 
                 if classification:
                     mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(
@@ -527,8 +539,23 @@ def trainer(
     return model, tracker
 
 
+def get_descriptor_loaders(train_idx, test_idx, batch_size=32):
+
+    desc_dataset_train, desc_dataset_test = load_descriptor_data_sets(
+        filename_descriptors, train_idx, test_idx, read_n_rows=read_n_rows
+    )
+    desc_train_loader = DataLoader(
+        dataset=desc_dataset_train, batch_size=batch_size, shuffle=True, num_workers=2
+    )
+    desc_test_loader = DataLoader(
+        dataset=desc_dataset_test, batch_size=batch_size, shuffle=True, num_workers=2
+    )
+    return desc_train_loader, desc_test_loader
+
+
 def load_data_models(
-    fname,
+    fname_descriptor,
+    fname_fingerprint,
     random_seed,
     workers,
     batch_size,
@@ -552,16 +579,21 @@ def load_data_models(
     pretrain=True,
     scale=None,
     infer=False,
+    nrows=None,
 ):
-    df = pd.read_csv(fname, header=None)
-    smiles = []
-    with multiprocessing.Pool() as p:
-        gg = filter(
-            lambda x: x is not None, p.imap(validate_smiles, list(df.iloc[:, 0]))
-        )
-        for g in tqdm(gg, desc="validate smiles"):
-            smiles.append(g)
-    del df
+
+    ## Pull SMILES and docking-score labels from fingerprint file
+    smiles, df_fingerprints, docking_scores = load_fingerprint_data(
+        fname_fingerprint, header="ecfp4_512", nrows=nrows
+    )
+
+    # with multiprocessing.Pool() as p:
+    #     gg = filter(
+    #         lambda x: x is not None, p.imap(validate_smiles, list(df.iloc[:, 0]))
+    #     )
+    #     for g in tqdm(gg, desc="validate smiles"):
+    #         smiles.append(g)
+    # del df
 
     if cvs is not None:
         if classification and tasks == 1 and precompute_frame is not None:
@@ -599,16 +631,23 @@ def load_data_models(
     else:
         mask = False
     if precomputed_images is not None:
-        precomputed_images = np.load(precomputed_images)
+        precomputed_images = np.load(precomputed_images)[:nrows]
         train_images = precomputed_images[train_idx]
         test_images = precomputed_images[test_idx]
         precomputed_images = True
     else:
         precomputed_images = False
 
+    ## Load Descriptors
+    train_loader_desc, test_loader_desc = get_descriptor_loaders(
+        train_idx, test_idx, batch_size
+    )
+
     scaler = None
-    if precompute_frame is not None:
-        features = np.load(precompute_frame)
+    # if precompute_frame is not None:
+    if True:  ## TODO unneeded
+        # features = np.load(precompute_frame)
+        features = docking_scores
         # features = np.nan_to_num(features, nan=0, posinf=0, neginf=0)
         assert features.shape[0] == len(smiles)
         if scale is not None:
@@ -635,7 +674,7 @@ def load_data_models(
             images=None if not precomputed_images else train_images,
             mask=None if not mask else train_mask,
         )
-        train_loader = DataLoader(
+        train_loader_image = DataLoader(
             train_dataset,
             num_workers=workers,
             pin_memory=True,
@@ -654,7 +693,7 @@ def load_data_models(
             bw=bw,
             mask=None if not mask else test_mask,
         )
-        test_loader = DataLoader(
+        test_loader_image = DataLoader(
             test_dataset,
             num_workers=workers,
             pin_memory=True,
@@ -665,7 +704,7 @@ def load_data_models(
         if not infer:
             assert False
         train_dataset = None
-        train_loader = None
+        train_loader_image = None
         test_dataset = ImageDatasetPreLoaded(
             test_smiles,
             None,
@@ -677,7 +716,7 @@ def load_data_models(
             bw=bw,
             mask=None if not mask else test_mask,
         )
-        test_loader = DataLoader(
+        test_loader_image = DataLoader(
             test_dataset,
             num_workers=workers,
             pin_memory=True,
@@ -688,6 +727,7 @@ def load_data_models(
             scaler = pickle.load(open(scale, "rb"))
 
     if intermediate_rep is None:
+        exit('todo')
         model = imagemodel.ImageModel(
             nheads=nheads,
             outs=tasks,
@@ -706,11 +746,19 @@ def load_data_models(
             linear_layers=depth,
             pretrain=pretrain,
         )
+        model = mm_model.MultiModalModel(1613)
 
     if return_datasets:
         return train_dataset, test_dataset, model, scaler
     else:
-        return train_loader, test_loader, model, scaler
+        return (
+            train_loader_image,
+            test_loader_image,
+            train_loader_desc,
+            test_loader_desc,
+            model,
+            scaler,
+        )
 
 
 if __name__ == "__main__":
@@ -719,8 +767,16 @@ if __name__ == "__main__":
     np.random.seed(args.r)
     torch.manual_seed(args.r)
 
-    train_loader, test_loader, model, scaler = load_data_models(
-        args.i,
+    (
+        train_loader_image,
+        test_loader_image,
+        train_loader_desc,
+        test_loader_desc,
+        model,
+        scaler,
+    ) = load_data_models(
+        args.descriptors,
+        args.fingerprints,
         args.r,
         args.w,
         args.b,
@@ -751,7 +807,7 @@ if __name__ == "__main__":
         model.to(device)
         run_eval(
             model,
-            train_loader,
+            train_loader_image,
             ordinal=False,
             enseml=args.ensemble_eval,
             output_preds=args.output_preds,
@@ -763,7 +819,7 @@ if __name__ == "__main__":
         model.to(device)
         run_eval(
             model,
-            test_loader,
+            test_loader_image,
             ordinal=False,
             enseml=args.ensemble_eval,
             output_preds=args.output_preds,
@@ -773,7 +829,9 @@ if __name__ == "__main__":
     elif args.infer:
         model.load_state_dict(torch.load(args.o)["model_state"])
         model.to(device)
-        run_infer(model, test_loader, output_preds=args.output_preds, scaler=scaler)
+        run_infer(
+            model, test_loader_image, output_preds=args.output_preds, scaler=scaler
+        )
         exit()
 
     model.to(device)
@@ -793,8 +851,8 @@ if __name__ == "__main__":
     model, history = trainer(
         model,
         optimizer,
-        train_loader,
-        test_loader,
+        train_loader_image,
+        test_loader_image,
         out=args.o,
         epochs=args.epochs,
         pb=args.pb,
