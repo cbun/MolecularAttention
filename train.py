@@ -210,6 +210,7 @@ def run_infer(
     preds = []
     with torch.no_grad():
         model.eval()
+        # TODO infer
         for i, drugfeats in tqdm(enumerate(data_loader)):
             drugfeats = drugfeats.to(device)
             pred, attn = model(drugfeats)
@@ -276,9 +277,11 @@ def run_eval(
                 second_range = tqdm(enumerate(train_loader))
             else:
                 second_range = enumerate(train_loader)
-            for i, (drugfeats, value) in second_range:
-                drugfeats, value = drugfeats.to(device), value.to(device)
-                pred, attn = model(drugfeats)
+            # for i, (drugfeats, value) in second_range:
+            for i, ((drugfeats, value), (desc_feats, _value_desc), fng_feats) in second_range:
+                # drugfeats, value = drugfeats.to(device), value.to(device)
+                drugfeats, desc_feats, fng_feats, value = drugfeats.to(device), desc_feats.to(device), fng_feats.to(device), value.to(device)
+                pred, attn = model(drugfeats, desc_feats, fng_feats)
 
                 if classification:
                     mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(
@@ -415,12 +418,9 @@ def trainer(
                 i, ((drugfeats, value), (desc_feats, _value_desc), fng_feats) = v
                 # assert value == _value_desc #TODO Dupe labels
             optimizer.zero_grad()
-            drugfeats, desc_feats, value = (
-                drugfeats.to(device),
-                desc_feats.to(device),
-                value.to(device),
-            )
-            pred, attn = model(drugfeats, desc_feats)
+
+            drugfeats, desc_feats, fng_feats, value = drugfeats.to(device), desc_feats.to(device), fng_feats.to(device), value.to(device)
+            pred, attn = model(drugfeats, desc_feats, fng_feats)
 
             if classification:
                 mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(
@@ -475,12 +475,13 @@ def trainer(
                     mask = mask.float().to(device)
                 else:
                     i, ((drugfeats, value), (desc_feats, _value_desc), fng_feats) = v
-                drugfeats, desc_feats, value = (
+                drugfeats, desc_feats, fng_feats, value = (
                     drugfeats.to(device),
                     desc_feats.to(device),
+                    fng_feats.to(device),
                     value.to(device),
                 )
-                pred, attn = model(drugfeats, desc_feats)
+                pred, attn = model(drugfeats, desc_feats, fng_feats)
 
                 if classification:
                     mse_loss = torch.nn.functional.binary_cross_entropy_with_logits(
@@ -570,7 +571,7 @@ def load_data_models(
     pretrain=True,
     scale=None,
     infer=False,
-    nrows=None,
+    nrows=1000,
 ):
 
     ## Pull SMILES and docking-score labels from fingerprint file
@@ -760,7 +761,9 @@ def load_data_models(
         #     linear_layers=depth,
         #     pretrain=pretrain,
         # )
-        model = mm_model.MultiModalModel(1613)
+        print('fingerprints shape:', df_fingerprints.shape)
+        #TODO infer shapes
+        model = mm_model.MultiModalModel(1613, df_fingerprints.shape[1])
 
     if return_datasets:
         return train_dataset, test_dataset, model, scaler
