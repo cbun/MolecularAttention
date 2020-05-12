@@ -149,6 +149,54 @@ class FingerprintModelPartial(nn.Module):
         return predictions
 
 
+class FDModelPartial(nn.Module):
+    def __init__(self, input_dim_fng, input_dim_dsc, merge_dim=128, dropout_rate=0.2, inner_dim=512):
+        super(FDModelPartial, self).__init__()
+
+        ## Fingerprint input
+        self.fc1_fng = nn.Linear(input_dim_fng, inner_dim)
+        self.fc2_fng = nn.Linear(inner_dim, inner_dim)
+        self.dropout = nn.Dropout(dropout_rate)
+
+        ## Desc input
+        self.fc1_dsc = nn.Linear(input_dim_dsc, inner_dim)
+        self.fc2_dsc = nn.Linear(inner_dim, inner_dim)
+
+        ## Combined Layers
+        # self.fc1 = nn.Linear(inner_dim * 2, inner_dim)
+        # self.fc2 = nn.Linear(inner_dim, 256)
+        # self.fc3 = nn.Linear(inner_dim, 256)
+
+        ## Head
+        self.model = nn.Sequential(
+            nn.Linear(inner_dim * 2, inner_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(inner_dim, 256),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(256, 256)
+        )
+
+    def forward(self, feats_fng, feats_dsc):
+
+        x_fng = self.fc2_fng(F.relu(self.dropout(self.fc1_fng(feats_fng))))
+        x_dsc = self.fc2_dsc(F.relu(self.dropout(self.fc1_dsc(feats_dsc))))
+        x_fd = torch.cat((x_fng, x_dsc), dim=1)
+        return self.model(x_fd)
+
+
+
+        # x_fd = F.relu(self.bn1(self.fc1(self.dropout(self.bn0(batch_seq_arr)))))
+        # x = F.relu(self.bn2(self.fc2(self.dropout(x))))
+        # x = F.relu(self.bn3(self.fc3(self.dropout(x))))
+        # x = F.relu(self.bn4(self.fc4(self.dropout(x))))
+        # predictions = self.fc5(self.dropout((((x)))))
+
+
 class MultiModalModel(nn.Module):
     def __init__(
         self,
@@ -156,16 +204,19 @@ class MultiModalModel(nn.Module):
         input_dim_fingerprints,
         linear_layers=2,
         intermediate_rep=512,
-        dr=0.15,
+        dr=0.2,
         merge_dim=256,
     ):
         super(MultiModalModel, self).__init__()
 
         print('init mm model')
         self.image_model = ImageModelPartial()
-        self.descriptor_model = DescriptorModelPartial(input_dim_descriptors)
-        self.fingerprint_model = FingerprintModelPartial(input_dim_fingerprints)
-        cat_layer_dim = merge_dim * 3
+        # self.descriptor_model = DescriptorModelPartial(input_dim_descriptors)
+        # self.fingerprint_model = FingerprintModelPartial(input_dim_fingerprints)
+        # cat_layer_dim = merge_dim * 3
+
+        self.fd_model = FDModelPartial(input_dim_fingerprints, input_dim_descriptors)
+        cat_layer_dim = merge_dim * 2
 
         self.linears = nn.ModuleList()
         self.linears.append(
@@ -191,7 +242,12 @@ class MultiModalModel(nn.Module):
     def forward(self, img_features, desc_features, fng_features):
 
         x_image = self.image_model(img_features)
-        x_desc = self.descriptor_model(desc_features)
-        x_fng = self.fingerprint_model(fng_features)
-        x = torch.cat((x_image, x_desc, x_fng), dim=1)
+        # x_desc = self.descriptor_model(desc_features)
+        # x_fng = self.fingerprint_model(fng_features)
+        # x = torch.cat((x_image, x_desc, x_fng), dim=1)
+
+
+        ## Early fusion F/D, Late Img
+        x_fd = self.fd_model(fng_features, desc_features)
+        x = torch.cat((x_image, x_fd), dim=1)
         return self.model(x), None  # TODO attn

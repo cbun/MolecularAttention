@@ -765,6 +765,7 @@ def load_data_models(
         #TODO infer shapes
         model = mm_model.MultiModalModel(1613, df_fingerprints.shape[1])
 
+    print(model)
     if return_datasets:
         return train_dataset, test_dataset, model, scaler
     else:
